@@ -81,6 +81,7 @@ extension AppModel {
     }
 
     func refreshNetwork() async {
+        if Demo.on { return }
         network = await NetworkInfo.snapshot()
         localPorts = await Task.detached { LocalPorts.scan() }.value
     }
@@ -373,6 +374,7 @@ extension AppModel {
 
     /// The wildcard works when a random name under it resolves to our IP.
     func checkWildcard(_ base: String) async {
+        if Demo.on { return }
         wildcardStatus[base] = .checking
         let probe = "lb-check-\(Int.random(in: 100000...999999)).\(base)"
         let a = await Task.detached { DNSLookup.a(probe) }.value

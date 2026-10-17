@@ -71,6 +71,7 @@ final class AppModel: ObservableObject {
     func startIfNeeded() {
         guard !started else { return }
         started = true
+        if Demo.on { Demo.fill(self); return }
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
         for service in config.services where service.autoStart && service.hasCommand { startCommand(service) }
         applyKeepAwake()
@@ -406,11 +407,13 @@ final class AppModel: ObservableObject {
     // MARK: - Checks
 
     func refreshAll() async {
+        if Demo.on { return }
         await refreshPorts()
         await refreshOnline()
     }
 
     func refreshPorts() async {
+        if Demo.on { return }
         for service in config.services {
             let open = await PortProbe.isOpen(service.localPort)
             var st = status[service.id] ?? ServiceStatus()
@@ -423,6 +426,7 @@ final class AppModel: ObservableObject {
 
     /// DNS (A record → server) and end-to-end HTTPS for every service.
     func refreshOnline() async {
+        if Demo.on { return }
         if serverIP.isEmpty, config.server.isComplete {
             serverIP = await Task.detached { [host = config.server.host] in DNSLookup.resolveHost(host) }.value
         }

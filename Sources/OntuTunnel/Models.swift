@@ -228,6 +228,7 @@ enum ConfigFile {
     }
 
     static func load() -> AppConfig {
+        if Demo.on { return Demo.shared }
         guard let data = try? Data(contentsOf: url),
               let config = try? JSONDecoder().decode(AppConfig.self, from: data)
         else { return AppConfig() }
@@ -235,6 +236,7 @@ enum ConfigFile {
     }
 
     static func save(_ config: AppConfig) {
+        if Demo.on { return }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         if let data = try? encoder.encode(config) {

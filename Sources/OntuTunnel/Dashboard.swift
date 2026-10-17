@@ -26,7 +26,7 @@ struct DashboardView: View {
     @EnvironmentObject var model: AppModel
     let goToServer: () -> Void
     @State private var editing: Service?
-    @State private var selection: Service.ID?
+    @State private var selection: Service.ID? = Demo.preselect
     @State private var search = ""
     @State private var filter: ServiceFilter = .all
 

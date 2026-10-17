@@ -13,7 +13,7 @@ from any phone or network in the world. No router setup, no monthly tunnel bill.
 [![Build](https://github.com/itsfaiyaz/OntuTunnel/actions/workflows/build.yml/badge.svg)](https://github.com/itsfaiyaz/OntuTunnel/actions/workflows/build.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-16a34a)](LICENSE)
 
-<img src="docs/screenshots/dashboard-dark.png" alt="OntuTunnel dashboard" width="900">
+<img src="docs/screenshots/mac-dark.png" alt="OntuTunnel Mac app" width="900">
 
 </div>
 
@@ -47,11 +47,16 @@ on **your own domain** with a real HTTPS lock.
 
 ## Screenshots
 
-| Dark | Light |
+| Light mode | Site details |
 |---|---|
-| <img src="docs/screenshots/dashboard-dark.png" alt="Dark dashboard"> | <img src="docs/screenshots/dashboard-light.png" alt="Light dashboard"> |
+| <img src="docs/screenshots/mac-light.png" alt="Mac app in light mode"> | <img src="docs/screenshots/mac-details.png" alt="Site details panel"> |
 
-<p align="center"><img src="docs/screenshots/dashboard-drawer.png" width="820" alt="Service details panel"><br><sub>Click a site to see its health, the DNS record it needs, and quick actions.</sub></p>
+<p align="center"><sub>Click a site to see its health, its settings and quick actions.</sub></p>
+
+<details>
+<summary>Windows & Linux: the browser dashboard</summary>
+<p align="center"><img src="docs/screenshots/web-dashboard.png" width="820" alt="Browser dashboard"></p>
+</details>
 
 ## How it works
 
