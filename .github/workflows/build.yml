@@ -108,4 +108,8 @@ jobs:
         run: |
           notes=docs/releases/${GITHUB_REF_NAME}.md
           [ -f "$notes" ] || notes=/dev/null
-          gh release create "$GITHUB_REF_NAME" out/* --title "OntuTunnel ${GITHUB_REF_NAME} · macOS, Windows & Linux" --notes-file "$notes"
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" out/* --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" out/* --title "OntuTunnel ${GITHUB_REF_NAME} · macOS, Windows & Linux" --notes-file "$notes"
+          fi

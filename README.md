@@ -41,6 +41,7 @@ on **your own domain** with a real HTTPS lock.
 - 🟢 **Health at a glance**: for every site it checks the app, DNS and HTTPS, from the internet's side.
 - 📶 **Survives network changes**: switch Wi-Fi, use a hotspot or get a new IP, and it reconnects in seconds.
 - ☕ **Keep awake** (optional): stops the computer from sleeping while your sites are online.
+- 🧭 **Menu bar on Mac**: see every site's status and connect, open sites or start their apps without opening the window.
 - 🖥️ **App + browser dashboard**: native Mac app, and the same dashboard at `http://localhost:7777` on every system. Light, dark or system theme.
 - 🛡️ **Safe on servers you already use**: it only adds its own files and never edits yours (see [below](#what-it-changes-on-your-server)).
 - 🧩 **Frappe / ERPNext ready**: site name per domain, realtime (Socket.IO) port supported.
@@ -126,6 +127,13 @@ Every push is built by [GitHub Actions](.github/workflows/build.yml).
 2. **Dashboard**: click **Publish** next to your app's port (or **Add Service**).
 3. **Domain**: type a name under your wildcard (`shop` → `shop.dev.example.com`), or use any domain and add the `A` record it shows.
 4. Wait for **app · dns · https** to turn green. Done. Open it from anywhere.
+
+**Day to day on a Mac, use the menu bar icon.** It shows:
+- the server and whether the tunnel is connected
+- every site with a 🟢 / 🟠 / 🔴 dot. Point at a site to open it, or start or stop its app.
+- Connect / Disconnect tunnel, Open browser dashboard, Open OntuTunnel
+
+Closing the window keeps OntuTunnel running in the menu bar, so your sites stay online.
 
 **Tip: set up a wildcard once.** In **Domains**, add `dev.example.com`, then add one DNS record:
 `A`  `*.dev` → your server IP. Every new `something.dev.example.com` now works without touching DNS.
