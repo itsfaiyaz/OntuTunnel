@@ -25,7 +25,7 @@ enum Demo {
         c.server.email = "admin@example.com"
         c.serverMode = .nginx
         c.wildcardBases = ["dev.example.com"]
-        c.web.enabled = false
+        c.web.port = 7790   // not 7777, so it runs beside a real OntuTunnel
         c.hiddenPorts = [5432, 6379]
         func svc(_ name: String, _ domain: String, _ port: Int, _ remote: Int, cmd: String = "") -> Service {
             var s = Service(name: name, domain: domain, localPort: port)

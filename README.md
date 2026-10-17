@@ -135,6 +135,8 @@ Every push is built by [GitHub Actions](.github/workflows/build.yml).
 
 Closing the window keeps OntuTunnel running in the menu bar, so your sites stay online.
 
+<p align="center"><img src="docs/screenshots/mac-menubar.png" width="460" alt="OntuTunnel menu bar menu"></p>
+
 **Tip: set up a wildcard once.** In **Domains**, add `dev.example.com`, then add one DNS record:
 `A`  `*.dev` → your server IP. Every new `something.dev.example.com` now works without touching DNS.
 
