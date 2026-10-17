@@ -101,9 +101,10 @@ final class WebDashboard {
         }
 
         let extra = setCookie
+        let route = path
         Task { @MainActor [weak self] in
             guard let self, let handler = self.handler else { c.cancel(); return }
-            let (status, type, data) = await handler(method, path, body)
+            let (status, type, data) = await handler(method, route, body)
             self.queue.async { self.respond(c, status, type, data, extra: extra) }
         }
     }

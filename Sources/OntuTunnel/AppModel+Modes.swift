@@ -308,19 +308,21 @@ extension AppModel {
         task.standardInput = FileHandle.nullDevice
         err.fileHandleForReading.readabilityHandler = { [weak self] h in
             guard let text = String(data: h.availableData, encoding: .utf8), !text.isEmpty else { return }
+            let model = self
             Task { @MainActor in
                 for line in text.split(whereSeparator: \.isNewline) {
                     let l = String(line)
-                    if l.contains("Registered tunnel connection") { self?.cfState = .connected(Date()) }
-                    if l.contains(" ERR ") || l.contains("error=") { self?.log("Cloudflare", l, error: true) }
-                    else if l.contains("Registered tunnel connection") { self?.log("Cloudflare", l) }
+                    if l.contains("Registered tunnel connection") { model?.cfState = .connected(Date()) }
+                    if l.contains(" ERR ") || l.contains("error=") { model?.log("Cloudflare", l, error: true) }
+                    else if l.contains("Registered tunnel connection") { model?.log("Cloudflare", l) }
                 }
             }
         }
         task.terminationHandler = { [weak self] t in
             err.fileHandleForReading.readabilityHandler = nil
+            let model = self
             Task { @MainActor in
-                guard let self, self.cfWanted else { return }
+                guard let self = model, self.cfWanted else { return }
                 self.cfState = .failed("cloudflared exited (\(t.terminationStatus)) — restarting")
                 self.log("Cloudflare", "cloudflared exited (\(t.terminationStatus)), restarting in \(Int(delay)) s", error: true)
                 DispatchQueue.main.asyncAfter(deadline: .now() + delay) {

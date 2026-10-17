@@ -63,9 +63,9 @@ jobs:
           go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
           V=$(cat VERSION)
           for ARCH in amd64 arm64; do
-            export ARCH VERSION=$V
-            nfpm package -f packaging/linux/nfpm.yaml -p deb -t dist/
-            nfpm package -f packaging/linux/nfpm.yaml -p rpm -t dist/
+            sed -e "s/\${ARCH}/$ARCH/g" -e "s/\${VERSION}/$V/g" packaging/linux/nfpm.yaml > nfpm-$ARCH.yaml
+            nfpm package -f nfpm-$ARCH.yaml -p deb -t dist/
+            nfpm package -f nfpm-$ARCH.yaml -p rpm -t dist/
             d=OntuTunnel-$V-linux-$ARCH; mkdir -p $d
             cp dist/linux-$ARCH/ontutunnel LICENSE packaging/linux/ontutunnel.desktop packaging/linux/ontutunnel.png packaging/linux/ontutunnel.service $d/
             tar czf dist/$d.tar.gz $d
@@ -80,9 +80,11 @@ jobs:
 
   macos:
     needs: test
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+      - name: Use the newest Xcode
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)" && swift --version
       - name: DMG (universal)
         run: ./scripts/make-dmg.sh
       - uses: actions/upload-artifact@v4

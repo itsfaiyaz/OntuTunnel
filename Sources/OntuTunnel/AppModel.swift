@@ -81,16 +81,19 @@ final class AppModel: ObservableObject {
             await checkAllWildcards()
         }
         timers.append(Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
-            Task { @MainActor in await self?.refreshPorts() }
+            let model = self
+            Task { @MainActor in await model?.refreshPorts() }
         })
         timers.append(Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
+            let model = self
             Task { @MainActor in
-                await self?.refreshNetwork()
-                await self?.refreshOnline()
+                await model?.refreshNetwork()
+                await model?.refreshOnline()
             }
         })
         timers.append(Timer.scheduledTimer(withTimeInterval: 6 * 3600, repeats: true) { [weak self] _ in
-            Task { @MainActor in if self?.config.mode == .staticIP { await self?.ensureStaticCertificate() } }
+            let model = self
+            Task { @MainActor in if model?.config.mode == .staticIP { await model?.ensureStaticCertificate() } }
         })
     }
 
