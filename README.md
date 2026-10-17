@@ -10,10 +10,11 @@ Put any app running on your computer (`localhost:8000`, `:3000`, `:5173` …) on
 `https://shop.example.com` — reachable from any phone or network in the world.
 No port forwarding, no static IP at home, no monthly tunnel subscription.
 
-[![Platform](https://img.shields.io/badge/platform-macOS%2014%2B-0a1b3c?logo=apple)](#install)
-[![Windows & Linux](https://img.shields.io/badge/Windows%20%26%20Linux-coming%20soon-3e8bff)](#roadmap)
+[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-0a1b3c)](#install)
+[![Build](https://github.com/itsfaiyaz/OntuTunnel/actions/workflows/build.yml/badge.svg)](https://github.com/itsfaiyaz/OntuTunnel/actions/workflows/build.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-16a34a)](LICENSE)
 [![Swift](https://img.shields.io/badge/Swift-5.9-F05138?logo=swift&logoColor=white)](Package.swift)
+[![Go](https://img.shields.io/badge/Go-1.27%2B-00ADD8?logo=go&logoColor=white)](cross/go.mod)
 
 <img src="docs/screenshots/dashboard-dark.png" alt="OntuTunnel dashboard" width="900">
 
@@ -92,16 +93,45 @@ With **Cloudflare Tunnel** the server box is Cloudflare's edge — free.
 2. Drag **OntuTunnel** into **Applications** and open it.
 3. First launch only: macOS may say it can't verify the developer → **System Settings → Privacy & Security → Open Anyway**.
 
+### Windows 10 / 11 (x64 · ARM64)
+
+1. Download `OntuTunnel-Setup-x.y.z-x64.exe` from **[Releases](../../releases)** and run it
+   (or use the portable `.zip` — no install needed).
+2. OntuTunnel starts in the background and opens its dashboard at **http://localhost:7777**.
+3. SmartScreen may warn about an unknown publisher → **More info → Run anyway**.
+
+> For *My server (SSH)* nothing else is needed. For *Cloudflare Tunnel* install
+> [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/).
+
+### Linux (x64 · ARM64)
+
+```bash
+# Debian / Ubuntu
+sudo apt install ./ontutunnel_x.y.z_amd64.deb
+# Fedora / RHEL
+sudo dnf install ./ontutunnel-x.y.z.x86_64.rpm
+# any distro: unpack the .tar.gz and run ./ontutunnel
+```
+
+Start it from the app menu or run `ontutunnel`; the dashboard opens at **http://localhost:7777**.
+To keep it running after login: `systemctl --user enable --now ontutunnel`.
+*My static IP* mode needs ports 80/443 once: `sudo setcap cap_net_bind_service=+ep /usr/bin/ontutunnel`.
+
 ### Build from source
 
 ```bash
 git clone https://github.com/itsfaiyaz/OntuTunnel.git
 cd OntuTunnel
+# macOS app (Xcode 15+ / Swift 5.9)
 ./scripts/build-app.sh --install     # builds and copies OntuTunnel.app to /Applications
 ./scripts/make-dmg.sh                # universal DMG in dist/
+# Windows / Linux (Go 1.27+, builds on any OS)
+./scripts/build-cross.sh             # dist/windows-*/ontutunnel.exe, dist/linux-*/ontutunnel
 ```
 
-Requires Xcode 15+ (Swift 5.9). No third-party dependencies.
+The macOS app has no third-party dependencies. The Windows/Linux edition (in [`cross/`](cross)) is a single
+binary with the same features and a built-in browser dashboard; installers are built by
+[GitHub Actions](.github/workflows/build.yml) on every push.
 
 ## Quick start
 
@@ -143,8 +173,8 @@ control it from your phone — every request then needs the access key shown in 
 ## Roadmap
 
 - [x] macOS app — SSH relay, static IP, Cloudflare Tunnel, wildcard domains, browser dashboard
-- [ ] **Windows** app (installer)
-- [ ] **Linux** app (AppImage / .deb)
+- [x] **Windows** app — installer + portable zip (x64, ARM64)
+- [x] **Linux** app — .deb, .rpm, .tar.gz (x64, ARM64)
 - [ ] Automatic DNS updates via provider APIs (Cloudflare, Hostinger, GoDaddy)
 - [ ] Basic-auth protection per site
 - [ ] Notarized macOS build

@@ -1,0 +1,25 @@
+name: ontutunnel
+arch: ${ARCH}
+platform: linux
+version: ${VERSION}
+section: net
+priority: optional
+maintainer: itsfaiyaz <itsmdfaiyaz@gmail.com>
+description: |
+  Put your localhost on your own domain with HTTPS — via your own server
+  (SSH tunnel), your static IP, or a free Cloudflare Tunnel.
+  Dashboard at http://localhost:7777.
+vendor: itsfaiyaz
+homepage: https://github.com/itsfaiyaz/OntuTunnel
+license: MIT
+recommends:
+  - openssh-client
+contents:
+  - src: ./dist/linux-${ARCH}/ontutunnel
+    dst: /usr/bin/ontutunnel
+  - src: ./packaging/linux/ontutunnel.desktop
+    dst: /usr/share/applications/ontutunnel.desktop
+  - src: ./packaging/linux/ontutunnel.png
+    dst: /usr/share/icons/hicolor/256x256/apps/ontutunnel.png
+  - src: ./packaging/linux/ontutunnel.service
+    dst: /usr/lib/systemd/user/ontutunnel.service

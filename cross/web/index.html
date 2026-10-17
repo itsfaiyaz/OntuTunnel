@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OntuTunnel</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230a1b3c'/%3E%3Cpath d='M10 13h12m-3-3 3 3-3 3M22 19H10m3-3-3 3 3 3' fill='none' stroke='%233e8bff' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<style>
+:root{--bg:#f5f7fb;--panel:#fff;--panel2:#f0f3f8;--text:#0e1726;--muted:#64748b;--line:#e3e8f0;--ontu:#3e8bff;--green:#16a34a;--orange:#d97706;--red:#dc2626;--gray:#94a3b8;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+@media (prefers-color-scheme:dark){:root{--bg:#050c1b;--panel:#0b1529;--panel2:#0f1c35;--text:#e6edf8;--muted:#8a9ab5;--line:#1c2a45}}
+*{box-sizing:border-box}html,body{margin:0;height:100%}body{background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;display:flex}
+a{color:var(--ontu)}code{font-family:var(--mono);font-size:12.5px;background:var(--panel2);padding:1px 5px;border-radius:5px}
+button{font:inherit;font-size:13px;padding:7px 12px;border-radius:9px;border:1px solid var(--line);background:var(--panel);color:var(--text);cursor:pointer;white-space:nowrap}
+button:hover{border-color:var(--ontu)}button:disabled{opacity:.5;cursor:default}button.primary{background:var(--ontu);border-color:var(--ontu);color:#fff}button.ghost{background:transparent}button.danger{color:var(--red)}
+input,select{font:inherit;padding:8px 11px;border-radius:9px;border:1px solid var(--line);background:var(--panel);color:var(--text);min-width:0;outline:none;width:100%}input:focus,select:focus{border-color:var(--ontu)}
+label.f{display:grid;gap:4px;font-size:12.5px;color:var(--muted)}label.chk{display:flex;gap:8px;align-items:center}label.chk input{width:auto}
+nav{width:210px;flex:none;border-right:1px solid var(--line);padding:16px 10px;display:flex;flex-direction:column;gap:3px;background:var(--panel)}
+nav .brand{display:flex;align-items:center;gap:9px;font-weight:700;font-size:17px;padding:4px 8px 16px}nav .brand svg{width:28px;height:28px}
+nav a{display:block;padding:8px 10px;border-radius:8px;color:var(--text);text-decoration:none;font-weight:500}nav a.on{background:color-mix(in srgb,var(--ontu) 16%,transparent);color:var(--ontu)}nav a:hover:not(.on){background:var(--panel2)}
+nav .foot{margin-top:auto;padding:8px;font-size:12px;color:var(--muted)}
+main{flex:1;overflow:auto;padding:22px 26px 60px;min-width:0}.page{display:grid;gap:16px;max-width:1180px;margin:0 auto}
+h1{font-size:24px;margin:0}.sub{color:var(--muted);margin:2px 0 0}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;background:color-mix(in srgb,var(--c) 15%,transparent)}
+.pill:before{content:"";width:7px;height:7px;border-radius:50%;background:var(--c)}
+.ok{--c:var(--green)}.warning{--c:var(--orange)}.failed{--c:var(--red)}.unknown,.checking,.off,.stopped{--c:var(--gray)}.connecting{--c:var(--orange)}.connected,.listening{--c:var(--green)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;position:relative;overflow:hidden;min-width:0}
+.tile:before{content:"";position:absolute;left:0;top:14px;bottom:14px;width:3px;border-radius:2px;background:var(--c)}
+.tile .lbl{font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--muted);text-transform:uppercase}.tile .big{font-size:22px;font-weight:700;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile .s{font:12px var(--mono);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;min-width:0}.pad{padding:16px}
+.ph{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap}.ph h2{font-size:15px;margin:0}
+.count{font:12px var(--mono);padding:1px 8px;border-radius:999px;background:var(--panel2);color:var(--muted)}
+.chips{display:flex;gap:4px;background:var(--panel2);padding:3px;border-radius:10px;flex-wrap:wrap}.chips button{border:0;background:transparent;padding:5px 10px}.chips button.on{background:var(--panel);box-shadow:0 1px 2px rgba(0,0,0,.15)}
+.tw{overflow-x:auto}table{width:100%;border-collapse:collapse}th{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-align:left;font-weight:700;padding:9px 14px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:9px 14px;border-bottom:1px solid var(--line);vertical-align:middle;white-space:nowrap}tr:last-child td{border-bottom:0}tbody tr{cursor:pointer}tbody tr:hover{background:var(--panel2)}tbody tr.sel{background:color-mix(in srgb,var(--ontu) 12%,transparent)}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--c);display:inline-block}.mono{font-family:var(--mono);font-size:12.5px}.muted{color:var(--muted)}
+.health{display:flex;gap:10px}.health span{display:inline-flex;align-items:center;gap:4px;font:11px var(--mono);color:var(--muted)}.health i{width:8px;height:8px;border-radius:50%;background:var(--c);display:inline-block}
+.toggle{position:relative;width:36px;height:20px;border-radius:999px;background:var(--gray);border:0;padding:0;flex:none}.toggle.on{background:var(--green)}
+.toggle:after{content:"";position:absolute;top:3px;left:3px;width:14px;height:14px;border-radius:50%;background:#fff;transition:left .15s}.toggle.on:after{left:19px}
+.layout{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}.layout.withd{grid-template-columns:minmax(0,1fr) 330px}@media (max-width:1100px){.layout.withd{grid-template-columns:minmax(0,1fr)}}
+.srow{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);align-items:center}.srow:last-child{border:0}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.ports{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px;padding:14px}
+.port{border:1px solid var(--line);border-radius:10px;padding:7px 10px;display:flex;justify-content:space-between;align-items:center;gap:6px;background:var(--panel2)}.port button{padding:4px 9px;font-size:12px}
+details>summary{cursor:pointer;color:var(--muted);padding:0 14px 12px}.log{font:12px var(--mono);white-space:pre-wrap;max-height:70vh;overflow:auto;padding:14px}.err{color:var(--red)}
+.modes{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}.mode{border:1.5px solid var(--line);border-radius:14px;padding:14px;cursor:pointer;background:var(--panel)}.mode.on{border-color:var(--ontu);background:color-mix(in srgb,var(--ontu) 9%,var(--panel))}
+.mode h3{margin:0 0 4px;font-size:15px;display:flex;justify-content:space-between;align-items:center}.mode p{margin:0;color:var(--muted);font-size:12.5px}
+.steps{display:grid;gap:8px}.step{display:flex;gap:10px;align-items:flex-start}.step .ic{width:20px;text-align:center;font-weight:700}.step .d{font-size:12.5px;color:var(--muted);word-break:break-word}
+.banner{padding:12px 14px;border-radius:12px;background:color-mix(in srgb,var(--orange) 12%,transparent);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.empty{padding:40px;text-align:center;color:var(--muted)}.err-msg{color:var(--red);font-size:13px}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;padding:16px;z-index:10}.modal.show{display:flex}
+.modal .box{background:var(--panel);border-radius:16px;padding:20px;width:min(560px,100%);max-height:90vh;overflow:auto;display:grid;gap:12px}
+.burger{display:none}@media (max-width:760px){nav{position:fixed;inset:0 auto 0 0;z-index:9;transform:translateX(-100%);transition:transform .2s}nav.open{transform:none}.burger{display:inline-block}main{padding:16px}}
+</style>
+</head>
+<body>
+<nav id="nav">
+  <div class="brand"><svg viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="#0a1b3c"/><path d="M6 24a10 10 0 0 1 20 0" fill="none" stroke="#3e8bff" stroke-opacity=".45" stroke-width="2.5" stroke-linecap="round"/><path d="M10 13h12m-3-3 3 3-3 3M22 19H10m3-3-3 3 3 3" fill="none" stroke="#3e8bff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>OntuTunnel</div>
+  <a href="#dashboard">Dashboard</a><a href="#connection">Connection</a><a href="#domains">Domains</a><a href="#logs">Logs</a><a href="#settings">Settings</a><a href="#guide">Guide</a>
+  <div class="foot"><span id="navState" class="pill unknown">…</span><div id="ver" style="margin-top:6px"></div></div>
+</nav>
+<main id="main"></main>
+<div class="modal" id="modal"><div class="box" id="modalBox"></div></div>
+<script>
+const $=s=>document.querySelector(s),esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let S=null,page='dashboard',filter='All',sel=null,viewMode=null,q='';
+const cv=c=>({ok:'green',warning:'orange',failed:'red'}[c]||'gray');
+async function load(){try{const r=await fetch('/api/state',{cache:'no-store'});if(r.ok){S=await r.json();render()}}catch(e){}}
+async function act(action,extra={}){const r=await fetch('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,...extra})});
+  const j=await r.json().catch(()=>({}));if(j.error){toast(j.error)}setTimeout(load,300);setTimeout(load,2500);return j}
+function toast(t){const e=document.createElement('div');e.textContent=t;e.style.cssText='position:fixed;bottom:18px;right:18px;background:var(--red);color:#fff;padding:10px 14px;border-radius:10px;z-index:20;max-width:420px';document.body.appendChild(e);setTimeout(()=>e.remove(),5000)}
+const needs=s=>s.enabled&&(s.status.port=='closed'||!s.status.live.ok||!s.status.dns.ok);
+const color=s=>!s.enabled?'off':s.status.port=='closed'?'failed':s.status.live.ok?'ok':'warning';
+function connState(){const m=S.config.mode,st=m=='staticIP'?S.proxy.state:m=='cloudflare'?S.cloudflared.state:S.tunnel.state;return S.connected?'connected':S.ready?(st=='connecting'?'connecting':'failed'):'off'}
+window.onhashchange=()=>{page=(location.hash||'#dashboard').slice(1);$('#nav').classList.remove('open');render()};
+function render(){if(!S)return;
+  document.querySelectorAll('nav a').forEach(a=>a.classList.toggle('on',a.getAttribute('href')=='#'+page));
+  const cs=connState();$('#navState').className='pill '+cs;$('#navState').textContent=S.modeTitle+(S.connected?' · on':S.ready?' · off':' · not set up');$('#ver').textContent='v'+S.version;
+  const keep=document.activeElement&&document.activeElement.id?document.activeElement.id:null;
+  if(keep&&['INPUT','SELECT'].includes(document.activeElement.tagName)&&page!='dashboard')return; // don't clobber typing
+  $('#main').innerHTML=({dashboard,connection,domains,logs,settings,guide}[page]||dashboard)();
+  if(keep&&document.getElementById(keep)){const el=document.getElementById(keep);el.focus();if(el.setSelectionRange&&el.value!=null)el.setSelectionRange(el.value.length,el.value.length)}
+}
+const head=(t,s,right='')=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><div style="display:flex;gap:10px;align-items:center"><button class="ghost burger" onclick="$('#nav').classList.add('open')">☰</button><div><h1>${t}</h1>${s?`<p class="sub">${s}</p>`:''}</div></div><div style="display:flex;gap:8px;flex-wrap:wrap">${right}</div></div>`;
+
+function dashboard(){const svc=S.services||[],on=svc.filter(s=>s.enabled),live=on.filter(s=>s.status.live.ok).length,att=svc.filter(needs).length;
+  const m=S.config.mode,detail=m=='relay'?(S.config.server.host+(S.serverIP?' · '+S.serverIP:'')):m=='cloudflare'?(S.config.cloudflare.tunnelName||'Cloudflare'):(S.dnsTarget||'static IP');
+  const rows=svc.filter(s=>{const ql=q.toLowerCase();const mt=!ql||(s.name+' '+s.domain+' '+s.localPort).toLowerCase().includes(ql);
+    return mt&&(filter=='All'||(filter=='Live'&&s.enabled&&s.status.live.ok)||(filter=='Needs attention'&&needs(s))||(filter=='Offline'&&!s.enabled))});
+  const h=(c,t,l)=>`<span title="${esc(t)}"><i style="--c:var(--${c})"></i>${l}</span>`,hc=x=>x.ok?'green':cv(x.state);
+  const ports=(S.ports||[]),vis=ports.filter(p=>!p.hidden),hid=ports.filter(p=>p.hidden);
+  const pc=(p,hd)=>`<div class="port"><div><div class="mono" style="font-weight:700">:${p.port}</div><div class="muted" style="font-size:11.5px">${esc(p.process)}</div></div><div style="display:flex;gap:5px">${hd?`<button onclick="act('unhide',{port:${p.port}})">Unhide</button>`:(p.published?'<span class="pill ok">Live</span>':`<button onclick="editService(null,${p.port},'${esc(p.process)}')">Publish</button>`)+`<button class="ghost" title="Hide" onclick="act('hide',{port:${p.port}})">⦸</button>`}</div></div>`;
+  return `<div class="page">${head('Dashboard','OntuTunnel · '+esc(S.modeTitle),`<input id="q" placeholder="Search sites, domains, ports" value="${esc(q)}" oninput="q=this.value;render()" style="width:230px"><button class="ghost" onclick="act('refresh')" title="Refresh">↻</button><button class="primary" onclick="editService()">+ Add service</button>`)}
+  ${!S.ready?`<div class="banner">Choose how this computer connects to the internet first. <a href="#connection"><button class="primary">Go to Connection</button></a></div>`:''}
+  <section class="stats">${[['Connection',S.connected?'ok':S.ready?'failed':'off',S.connected?'Connected':S.ready?'Disconnected':'Not set up',detail,S.ready?(S.connected?`<button onclick="act('stop')">Stop</button>`:`<button onclick="act('start')">Connect</button>`):''],
+    ['Live sites',!on.length?'off':live==on.length?'ok':'warning',live+' / '+on.length,'online over HTTPS',`<button onclick="act('sync')" ${S.ready?'':'disabled'}>Sync</button>`],
+    ['Attention',att?'warning':'ok',att?att+' site'+(att>1?'s':''):'All good',att?'see Health':'nothing to fix',''],
+    ['This computer','ok',S.network.publicIPv4||'—','LAN '+(S.network.localIPv4||'—'),'']].map(([l,c,b,s,a])=>`<div class="tile" style="--c:var(--${cv(c)})"><div class="lbl" style="display:flex;justify-content:space-between;align-items:center">${l}${a}</div><div class="big">${esc(b)}</div><div class="s">${esc(s)}</div></div>`).join('')}</section>
+  <div class="layout ${sel&&svc.find(x=>x.id==sel)?'withd':''}"><section class="panel">
+    <div class="ph"><h2>Services</h2><span class="count">${svc.length}</span><span style="flex:1"></span><div class="chips">${['All','Live','Needs attention','Offline'].map(f=>`<button class="${f==filter?'on':''}" onclick="filter='${f}';render()">${f}</button>`).join('')}</div></div>
+    ${!svc.length?'<div class="empty">No services yet — click + Add service, or Publish a port below.</div>':!rows.length?'<div class="empty">Nothing matches.</div>':
+    `<div class="tw"><table><thead><tr><th></th><th>Name</th><th>Domain</th><th>Local</th><th>Health</th><th>Online</th></tr></thead><tbody>${rows.map(s=>`<tr class="${s.id==sel?'sel':''}" onclick="sel='${s.id}';render()">
+      <td style="width:18px"><span class="dot" style="--c:var(--${cv(color(s))})"></span></td><td style="font-weight:600">${esc(s.name||s.domain.split('.')[0])}</td><td class="mono muted">${esc(s.domain)}</td><td class="mono">:${s.localPort}</td>
+      <td><div class="health">${h(s.status.port=='open'?'green':s.status.port=='closed'?'red':'gray','Local app','app')}${h(hc(s.status.dns),'DNS: '+s.status.dns.text,'dns')}${h(s.enabled?hc(s.status.live):'gray','Internet: '+s.status.live.text,'https')}</div></td>
+      <td onclick="event.stopPropagation()"><button class="toggle ${s.enabled?'on':''}" onclick="act('toggle',{id:'${s.id}',on:${!s.enabled}})"></button></td></tr>`).join('')}</tbody></table></div>`}
+    ${S.syncMessage?`<div class="muted pad" style="padding-top:8px;font-size:12.5px">${esc(S.syncMessage)}</div>`:''}
+  </section>${drawer(svc)}</div>
+  <section class="panel"><div class="ph"><h2>Running on this computer</h2><span class="count">${vis.length}</span></div><div class="ports">${vis.map(p=>pc(p,false)).join('')||'<div class="muted">Nothing listening (or all hidden).</div>'}</div>
+    ${hid.length?`<details><summary>Hidden (${hid.length}) — ${esc(hid.map(p=>p.process+' :'+p.port).join(', '))}</summary><div class="ports" style="padding-top:0">${hid.map(p=>pc(p,true)).join('')}</div></details>`:''}</section></div>`}
+
+function drawer(svc){const s=svc.find(x=>x.id==sel);if(!s)return'';const st=s.status;
+  const r=(k,c,v)=>`<div class="srow"><span>${k}</span><span class="pill ${c}" style="max-width:190px;white-space:normal">${esc(v)}</span></div>`;
+  const dnsHint=s.enabled&&!st.dns.ok&&S.config.mode!='cloudflare'&&S.dnsTarget?`<div class="banner" style="display:block"><b>DNS record needed</b><div class="mono" style="margin-top:4px">A · ${esc(label(s.domain))} · ${esc(S.dnsTarget)}</div></div>`:'';
+  return `<aside class="panel pad" style="display:grid;gap:12px;align-content:start"><div style="display:flex;justify-content:space-between;gap:8px"><div style="min-width:0"><h2 style="margin:0">${esc(s.name||s.domain)}</h2><a class="mono" href="https://${esc(s.domain)}" target="_blank">${esc(s.domain)} ↗</a></div><button class="ghost" onclick="sel=null;render()">✕</button></div>
+   <div>${r('Local app :'+s.localPort,st.port=='open'?'ok':st.port=='closed'?'failed':'unknown',st.port=='open'?'Running':st.port=='closed'?'Not running':'…')}${r('DNS',st.dns.state,st.dns.ok?'OK':st.dns.text)}${r('Internet',s.enabled?st.live.state:'off',st.live.ok?'Live (HTTPS)':s.enabled?st.live.text:'Offline')}
+   ${s.frappeSite?`<div class="srow"><span>Frappe site</span><span class="mono">${esc(s.frappeSite)}</span></div>`:''}${s.remotePort&&S.config.mode=='relay'?`<div class="srow"><span>Server port</span><span class="mono">127.0.0.1:${s.remotePort}</span></div>`:''}</div>${dnsHint}
+   <a href="https://${esc(s.domain)}" target="_blank"><button class="primary" style="width:100%">Open site</button></a>
+   <div style="display:flex;gap:8px"><button style="flex:1" onclick="navigator.clipboard.writeText('https://${esc(s.domain)}')">Copy URL</button><button style="flex:1" onclick="act('toggle',{id:'${s.id}',on:${!s.enabled}})">${s.enabled?'Take offline':'Bring online'}</button></div>
+   ${s.startCommand?`<button onclick="act('${s.commandRunning?'stopCmd':'startCmd'}',{id:'${s.id}'})">${s.commandRunning?'Stop command':'Start command'}</button>`:''}
+   <div style="display:flex;gap:8px"><button style="flex:1" onclick="editService('${s.id}')">Edit</button><button class="danger" style="flex:1" onclick="if(confirm('Delete ${esc(s.name||s.domain)}? It is also removed from the server.')){act('deleteService',{id:'${s.id}'});sel=null}">Delete</button></div></aside>`}
+
+function label(d){const p=d.split('.');if(p.length<=2)return'@';const k=['co.in','org.in','net.in','gov.in','ac.in','co.uk','com.au'].includes(p.slice(-2).join('.'))?3:2;return p.length>k?p.slice(0,-k).join('.'):'@'}
+
+function editService(id,port,proc){const s=id?S.services.find(x=>x.id==id):{name:proc?proc+' on '+port:'',domain:'',localPort:port||'',frappeSite:'',socketPort:0,enabled:true,startCommand:'',workingDirectory:'',autoStart:false,keepAlive:false};
+  const bases=S.config.wildcardBases||[];const under=bases.find(b=>s.domain.endsWith('.'+b)&&!s.domain.slice(0,-b.length-1).includes('.'));
+  $('#modalBox').innerHTML=`<h2 style="margin:0">${id?'Edit':'Add'} service</h2>
+   <div class="grid2"><label class="f">Name<input id="e_name" value="${esc(s.name)}" placeholder="My Shop"></label><label class="f">Local port<input id="e_port" value="${esc(s.localPort)}" placeholder="8001"></label></div>
+   <div style="display:grid;gap:6px"><label class="chk"><input type="radio" name="dt" id="e_w" ${bases.length&&(under||!id)?'checked':''} ${bases.length?'':'disabled'} onchange="dtype()"> Under my wildcard domain ${bases.length?'':'<span class="muted">(set one up in Domains)</span>'}</label>
+   <label class="chk"><input type="radio" name="dt" id="e_c" ${!(bases.length&&(under||!id))?'checked':''} onchange="dtype()"> Custom domain</label></div>
+   <div id="w_box" class="grid2"><label class="f">Name under the wildcard<input id="e_sub" value="${under?esc(s.domain.slice(0,-under.length-1)):''}" placeholder="shop"></label><label class="f">Wildcard<select id="e_base">${bases.map(b=>`<option ${b==under?'selected':''}>${esc(b)}</option>`).join('')}</select></label></div>
+   <div id="c_box"><label class="f">Full domain<input id="e_dom" value="${esc(s.domain)}" placeholder="shop.example.com"></label><div class="muted" style="font-size:12.5px;margin-top:4px">${S.config.mode=='cloudflare'?'Cloudflare creates the DNS record automatically.':'You add its DNS record: A → '+esc(S.dnsTarget||'your connection IP')}</div></div>
+   <details><summary style="padding:0">Frappe / start command (optional)</summary><div class="grid2" style="margin-top:10px"><label class="f">Frappe site<input id="e_site" value="${esc(s.frappeSite)}" placeholder="mysite.local"></label><label class="f">Realtime (Socket.IO) port<input id="e_sock" value="${s.socketPort||''}" placeholder="9001"></label>
+   <label class="f">Start command<input id="e_cmd" value="${esc(s.startCommand)}" placeholder="npm run dev"></label><label class="f">Folder<input id="e_dir" value="${esc(s.workingDirectory)}" placeholder="C:\\projects\\app"></label></div>
+   <label class="chk" style="margin-top:8px"><input type="checkbox" id="e_auto" ${s.autoStart?'checked':''}> Start when OntuTunnel opens</label><label class="chk"><input type="checkbox" id="e_keep" ${s.keepAlive?'checked':''}> Keep alive (restart if it stops)</label></details>
+   <div id="e_err" class="err-msg"></div>
+   <div style="display:flex;justify-content:flex-end;gap:8px"><button onclick="$('#modal').classList.remove('show')">Cancel</button><button class="primary" onclick="saveSvc('${id||''}')">${id?'Save':'Add'}</button></div>`;
+  $('#modal').classList.add('show');dtype()}
+function dtype(){const w=$('#e_w')&&$('#e_w').checked;$('#w_box').style.display=w?'':'none';$('#c_box').style.display=w?'none':''}
+async function saveSvc(id){const w=$('#e_w').checked,dom=w?($('#e_sub').value.trim().toLowerCase()+'.'+$('#e_base').value):$('#e_dom').value.trim();
+  const old=id?S.services.find(x=>x.id==id):{};const svc={...old,id:id||'',name:$('#e_name').value.trim(),domain:dom,localPort:parseInt($('#e_port').value,10)||0,frappeSite:$('#e_site').value.trim(),
+   socketPort:parseInt($('#e_sock').value,10)||0,startCommand:$('#e_cmd').value.trim(),workingDirectory:$('#e_dir').value.trim(),autoStart:$('#e_auto').checked,keepAlive:$('#e_keep').checked,enabled:id?old.enabled:true};
+  delete svc.status;delete svc.commandRunning;const j=await act('saveService',{service:svc});if(j.error){$('#e_err').textContent=j.error;return}$('#modal').classList.remove('show')}
+
+function steps(list){return list&&list.length?`<div class="steps">${list.map(s=>`<div class="step"><div class="ic" style="color:var(--${cv(s.state)})">${{ok:'✓',failed:'✗',warning:'!',checking:'…'}[s.state]||'○'}</div><div><div style="font-weight:600">${esc(s.title)}</div>${s.detail?`<div class="d">${esc(s.detail)}</div>`:''}</div></div>`).join('')}</div>`:''}
+
+function connection(){const m=viewMode||S.config.mode,act_=S.config.mode,modes=[['relay','My server (SSH)','A VPS / cloud VM with a static IP'],['staticIP','My static IP','Static public IP from your ISP, no server'],['cloudflare','Cloudflare Tunnel','Free, no server and no static IP']];
+  return `<div class="page">${head('Connection','How should visitors reach this computer?')}
+  <div class="modes">${modes.map(([k,t,d])=>`<div class="mode ${k==m?'on':''}" onclick="viewMode='${k}';render()"><h3>${t}${k==act_?'<span class="pill ok">Active</span>':''}</h3><p>${d}</p></div>`).join('')}</div>
+  ${m!=act_?`<div class="banner">You're looking at <b>${modes.find(x=>x[0]==m)[1]}</b>. Your sites use <b>${esc(S.modeTitle)}</b> — nothing changes until you switch. <button class="primary" onclick="if(confirm('Switch connection? The current one stops; sites are offline until DNS points to the new one.')){act('setMode',{mode:'${m}'});viewMode=null}">Use this connection</button></div>`:''}
+  <div style="${m!=act_?'opacity:.55;pointer-events:none':''}">${m=='relay'?relay():m=='staticIP'?staticIP():cloudflare()}</div></div>`}
+
+function relay(){const s=S.config.server,f=S.facts,c=S.conn;
+  return `<div class="page" style="max-width:none"><section class="panel pad" style="display:grid;gap:12px"><h2 style="margin:0;font-size:16px">1 · Connect</h2>
+   <div class="grid2"><label class="f">Server IP / host<input id="s_host" value="${esc(s.host)}" placeholder="203.0.113.10"></label><label class="f">SSH user<input id="s_user" value="${esc(s.user)}" placeholder="ubuntu"></label>
+   <label class="f">SSH port<input id="s_port" value="${s.port||22}"></label><label class="f">SSH key<select id="s_key">${[...new Set([...(S.sshKeys||[]),s.keyPath].filter(Boolean))].map(k=>`<option ${k==s.keyPath?'selected':''}>${esc(k)}</option>`).join('')}</select></label>
+   <label class="f">Email (optional, SSL notices)<input id="s_mail" value="${esc(s.email)}"></label></div>
+   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button onclick="saveServer().then(()=>act('testConnection'))">Save & test connection</button><button class="ghost" onclick="act('createKey')">Create new key</button>
+   ${c&&c.state!='unknown'?`<span class="pill ${c.state}" style="white-space:normal">${c.ok?'Connected':esc(c.text)}</span>`:''}</div>
+   ${S.publicKey?`<details><summary style="padding:0">Public key — add it to the server if the connection is refused</summary><div class="mono" style="word-break:break-all;margin:8px 0;padding:8px;background:var(--panel2);border-radius:8px">${esc(S.publicKey)}</div><button onclick="navigator.clipboard.writeText(${JSON.stringify(S.publicKey||'')})">Copy public key</button><p class="muted" style="font-size:12.5px">Google Cloud: VM → Edit → SSH Keys → Add item. Other servers: append it to ~/.ssh/authorized_keys of the SSH user.</p></details>`:''}</section>
+  ${f?`<section class="panel pad"><h2 style="margin:0 0 8px;font-size:16px">What's on the server</h2><div class="grid2 mono" style="font-size:12.5px"><div>System: ${esc(f.os)} · ${esc(f.arch)}</div><div>sudo: ${f.sudo?'yes':'no — needed'}</div><div>Port 80: ${esc(f.port80||'free')}</div><div>Port 443: ${esc(f.port443||'free')}</div></div></section>`:''}
+  <section class="panel pad" style="display:grid;gap:12px"><h2 style="margin:0;font-size:16px">2 · Set up server</h2><p class="muted" style="margin:0">Checks the server, installs what is missing, publishes your services and starts the tunnel. Only adds its own files — nothing you already run is changed. Safe to run again.</p>
+   <div><button class="primary" ${S.busy?'disabled':''} onclick="saveServer().then(()=>act('setupRelay'))">${S.ready?'Run setup again':'Set up server'}</button></div>${steps(S.steps)}</section>
+  ${S.ready?`<section class="panel pad" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span class="pill ${S.tunnel.state}">Tunnel ${esc(S.tunnel.state)}</span>${S.tunnel.detail?`<span class="muted">${esc(S.tunnel.detail)}</span>`:''}<span style="flex:1"></span><button onclick="act('sync')">Sync now</button><button class="danger" onclick="if(confirm('Remove everything OntuTunnel added to the server? Your other sites are not touched.'))act('removeFromServer')">Remove from server</button></section>`:''}</div>`}
+async function saveServer(){return act('saveServer',{server:{host:$('#s_host').value,user:$('#s_user').value,port:parseInt($('#s_port').value,10)||22,keyPath:$('#s_key').value,email:$('#s_mail').value}})}
+
+function staticIP(){const c=S.config.staticIP;return `<div class="page" style="max-width:none"><section class="panel pad" style="display:grid;gap:12px">
+   <p class="muted" style="margin:0">No server: this computer serves your sites on ports 80 and 443 with free automatic HTTPS. Needs a <b>static public IPv4</b> from your provider and port forwarding on the router.</p>
+   <div class="grid2"><label class="f">Static public IP (empty = detected ${esc(S.network.publicIPv4||'')})<input id="t_ip" value="${esc(c.ip)}"></label><label class="f">Email (optional)<input id="t_mail" value="${esc(c.email)}"></label></div>
+   <label class="chk"><input type="checkbox" id="t_https" ${c.httpsEnabled?'checked':''}> HTTPS (Let's Encrypt)</label><label class="chk"><input type="checkbox" id="t_redir" ${c.redirectToHTTPS?'checked':''}> Send http:// to https://</label>
+   <p style="margin:0">Router: forward TCP <b>80</b> and <b>443</b> to <b class="mono">${esc(S.network.localIPv4||'this computer')}</b>. Give this computer a fixed LAN IP.</p>
+   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="primary" onclick="act('saveStatic',{staticIP:{ip:$('#t_ip').value.trim(),email:$('#t_mail').value.trim(),httpsEnabled:$('#t_https').checked,redirectToHTTPS:$('#t_redir').checked}}).then(()=>act('start'))">Save & start</button><button onclick="act('stop')">Stop</button>
+   <span class="pill ${S.proxy.state}">${esc(S.proxy.state)}${S.proxy.detail?' · '+esc(S.proxy.detail):''}</span></div>
+   <p class="muted" style="margin:0;font-size:12.5px">DNS for each service: A → ${esc(S.dnsTarget||'your static IP')}. Linux: allow ports below 1024 once with <code>sudo setcap cap_net_bind_service=+ep $(which ontutunnel)</code>.</p></section></div>`}
+
+function cloudflare(){const c=S.config.cloudflare;return `<div class="page" style="max-width:none"><section class="panel pad" style="display:grid;gap:10px"><h2 style="margin:0;font-size:16px">Before you start (once)</h2>
+   <div>1. Free account at <a href="https://dash.cloudflare.com" target="_blank">dash.cloudflare.com</a> → <b>Add a domain</b>.</div><div>2. At your registrar, set the two <b>Cloudflare nameservers</b> it shows. Wait until the domain is <i>Active</i>.</div></section>
+   <section class="panel pad" style="display:grid;gap:12px"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="primary" ${S.busy?'disabled':''} onclick="act('setupCloudflare')">${S.ready?'Run setup again':'Set up Cloudflare Tunnel'}</button><span class="pill ${S.cloudflared.state}">cloudflared ${esc(S.cloudflared.state)}</span></div>
+   ${steps(S.steps)}${S.ready?`<div class="muted" style="font-size:12.5px">Tunnel ${esc(c.tunnelName)} · routed: ${esc((c.routed||[]).join(', ')||'none yet')}</div>`:''}</section></div>`}
+
+function domains(){const ws=S.wildcards||{},bases=S.config.wildcardBases||[];
+  return `<div class="page">${head('Domains','One-time setup: one DNS record, then every service under it goes live with no DNS step.')}
+  <section class="panel pad" style="display:grid;gap:10px">${bases.map(b=>{const c=ws[b]||{state:'unknown',text:'Not checked'};return `<div class="port" style="background:var(--panel2);flex-wrap:wrap"><div><div class="mono" style="font-weight:700">*.${esc(b)}</div>
+    ${!c.ok&&S.config.mode!='cloudflare'?`<div class="muted" style="font-size:12.5px">Add once: <b>A</b> · <span class="mono">*.${esc(label(b)=='@'?'':label(b))}</span> → <span class="mono">${esc(S.dnsTarget||'your connection IP')}</span></div>`:''}</div>
+    <div style="display:flex;gap:6px;align-items:center"><span class="pill ${c.state}">${c.ok?'Ready':esc(c.text)}</span><button onclick="act('checkWildcards')">Check</button><button class="danger" onclick="act('removeWildcard',{base:'${esc(b)}'})">Remove</button></div></div>`}).join('')||'<div class="muted">No wildcard yet.</div>'}
+   <div style="display:flex;gap:8px"><input id="w_new" placeholder="e.g. dev.example.com"><button class="primary" onclick="act('addWildcard',{base:$('#w_new').value});$('#w_new').value=''">Add</button></div></section></div>`}
+
+function logs(){return `<div class="page">${head('Logs','')}<section class="panel"><div class="log">${(S.logs||[]).slice().reverse().map(l=>`<div class="${l.error?'err':''}">${esc(l.time)} [${esc(l.source)}] ${esc(l.text)}</div>`).join('')}</div></section></div>`}
+
+function settings(){const c=S.config;return `<div class="page">${head('Settings','')}<section class="panel pad" style="display:grid;gap:12px">
+  <label class="chk"><input type="checkbox" id="g_auto" ${c.autoConnect?'checked':''}> Connect automatically when OntuTunnel starts</label>
+  <label class="chk"><input type="checkbox" id="g_lan" ${c.web.allowLAN?'checked':''}> Allow other devices on my network to open this dashboard (needs the access key; restart to apply)</label>
+  ${c.web.allowLAN?`<div class="mono" style="word-break:break-all">http://${esc(S.network.localIPv4)}:${c.web.port}/?key=${esc(c.web.key)}</div>`:''}
+  <div><button class="primary" onclick="act('settings',{autoConnect:$('#g_auto').checked,allowLAN:$('#g_lan').checked})">Save</button></div>
+  <p class="muted" style="margin:0;font-size:12.5px">Start with your computer: Windows — the installer can add OntuTunnel to Startup. Linux — <code>systemctl --user enable --now ontutunnel</code>.</p></section></div>`}
+
+function guide(){return `<div class="page">${head('Guide','Pick ONE way to connect on the Connection page.')}<section class="panel pad" style="display:grid;gap:10px">
+  <div class="tw"><table><thead><tr><th></th><th>You need</th><th>Cost</th><th>DNS</th></tr></thead><tbody>
+   <tr><td><b>My server (SSH)</b></td><td>A VPS / cloud VM with static IP</td><td>Server bill</td><td>A → server IP</td></tr>
+   <tr><td><b>My static IP</b></td><td>Static IP from your ISP + port forwarding</td><td>ISP add-on</td><td>A → your IP</td></tr>
+   <tr><td><b>Cloudflare Tunnel</b></td><td>Free Cloudflare account, domain on Cloudflare</td><td>Free</td><td>Automatic</td></tr></tbody></table></div></section>
+  <section class="panel pad"><h2 style="margin:0 0 6px;font-size:16px">Steps</h2><ol style="margin:0;padding-left:18px;display:grid;gap:6px"><li>Run your app (e.g. <code>npm run dev</code> → localhost:3000).</li><li>Connection → choose a mode and follow its steps.</li><li>Dashboard → <b>Publish</b> next to the port (or + Add service), enter a domain.</li><li>Add the A record shown (not needed under a ready wildcard or with Cloudflare).</li><li>The row turns green: app · dns · https.</li></ol></section></div>`}
+
+load();setInterval(()=>{const t=document.activeElement;if(!(t&&['INPUT','SELECT','TEXTAREA'].includes(t.tagName)))load()},4000);window.onhashchange();
+</script>
+</body>
+</html>

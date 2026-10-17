@@ -5,7 +5,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-VERSION="1.1.0"
+VERSION="$(cat VERSION 2>/dev/null || echo 1.0.0)"
 APP="dist/OntuTunnel.app"
 
 # --universal: one app for Apple Silicon and Intel Macs (used for the DMG)

@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=OntuTunnel
+Comment=Put your localhost on your own domain with HTTPS
+Exec=ontutunnel
+Icon=ontutunnel
+Terminal=false
+Categories=Development;Network;

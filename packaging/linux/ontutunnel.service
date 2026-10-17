@@ -1,0 +1,11 @@
+[Unit]
+Description=OntuTunnel — localhost on your own domain
+After=network-online.target
+
+[Service]
+ExecStart=/usr/bin/ontutunnel -no-browser
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

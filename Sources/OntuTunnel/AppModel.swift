@@ -248,7 +248,7 @@ final class AppModel: ObservableObject {
         guard let mode = config.serverMode else { return (false, "Server not set up yet.") }
         let script = mode == .caddy
             ? RemoteServer.applyCaddyScript(config.services, email: config.server.email)
-            : RemoteServer.applyNginxScript(config.services, email: config.server.email)
+            : RemoteServer.applyNginxScript(config.services, email: config.server.email, published: config.published)
         let r = await RemoteServer.run(config.server, script, timeout: 240)
         for line in r.out.split(separator: "\n") where line.hasPrefix("CERT-") {
             log("Server", String(line), error: line.hasPrefix("CERT-PENDING"))
@@ -259,6 +259,9 @@ final class AppModel: ObservableObject {
         }
         let pending = r.out.split(separator: "\n").filter { $0.hasPrefix("CERT-PENDING") }
         let message = pending.isEmpty ? "" : "HTTPS pending for some domains (DNS must point to \(serverIP.isEmpty ? config.server.host : serverIP) first) — Sync again after fixing DNS."
+        config.published = config.services
+            .filter { $0.enabled && $0.remotePort > 0 && !$0.normalizedDomain.isEmpty }
+            .map(\.normalizedDomain)
         log("Server", "Published \(config.services.filter(\.enabled).count) site(s) (\(mode.rawValue))")
         return (true, message)
     }

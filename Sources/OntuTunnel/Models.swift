@@ -188,6 +188,10 @@ struct AppConfig: Codable {
     /// Wildcard bases, e.g. "dev.example.com": DNS has *.dev.example.com → this
     /// connection's IP, so any name under it works without a DNS step.
     var wildcardBases: [String] = []
+    /// Domains this Mac has published on the server. Cleanup only removes
+    /// these, never files another computer wrote. nil = config from before
+    /// this was tracked (then every ontutunnel-* file is ours).
+    var published: [String]?
     var web = WebConfig()
 
     init() {}
@@ -202,6 +206,7 @@ struct AppConfig: Codable {
         autoConnect = try c.decodeIfPresent(Bool.self, forKey: .autoConnect) ?? true
         hiddenPorts = try c.decodeIfPresent([Int].self, forKey: .hiddenPorts) ?? []
         wildcardBases = try c.decodeIfPresent([String].self, forKey: .wildcardBases) ?? []
+        published = try c.decodeIfPresent([String].self, forKey: .published)
         web = try c.decodeIfPresent(WebConfig.self, forKey: .web) ?? WebConfig()
     }
 }

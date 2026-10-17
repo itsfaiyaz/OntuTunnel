@@ -291,7 +291,7 @@ enum RemoteServer {
 
     /// Writes our files, removes our files for deleted services, tests nginx,
     /// reloads — or rolls back to the previous files if the test fails.
-    static func applyNginxScript(_ services: [Service], email: String) -> String {
+    static func applyNginxScript(_ services: [Service], email: String, published: [String]?) -> String {
         let active = services.filter { $0.enabled && $0.remotePort > 0 && !$0.normalizedDomain.isEmpty }
         let keep = active.map { "ontutunnel-\($0.normalizedDomain).conf" }.joined(separator: " ")
         var script = """
@@ -318,10 +318,16 @@ enum RemoteServer {
             echo "CONFLICT: $d is already configured in another nginx file — not touching it." >&2; exit 3
           fi
         done
+        \(published.map { list in """
+        for d in \(list.joined(separator: " ")); do
+          case " \(keep) " in *" ontutunnel-$d.conf "*) ;; *) sudo rm -f "/etc/nginx/conf.d/ontutunnel-$d.conf";; esac
+        done
+        """ } ?? """
         for f in /etc/nginx/conf.d/ontutunnel-*.conf; do
           [ -e "$f" ] || continue
           case " \(keep) " in *" $(basename "$f") "*) ;; *) sudo rm -f "$f";; esac
         done
+        """)
 
         """
         for s in active {
