@@ -88,6 +88,7 @@ type Config struct {
 	Cloudflare    CloudflareConfig `json:"cloudflare"`
 	Services      []Service        `json:"services"`
 	AutoConnect   bool             `json:"autoConnect"`
+	KeepAwake     bool             `json:"keepAwake"` // stop idle sleep while running
 	HiddenPorts   []int            `json:"hiddenPorts"`
 	WildcardBases []string         `json:"wildcardBases"`
 	// Domains this installation has published on the server — cleanup only

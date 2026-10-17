@@ -4,17 +4,14 @@
 
 # OntuTunnel
 
-**Your localhost, live on your own domain — with HTTPS, in a few clicks.**
+**Put the app running on your computer on your own domain, with HTTPS, in a few clicks.**
 
-Put any app running on your computer (`localhost:8000`, `:3000`, `:5173` …) on a real domain like
-`https://shop.example.com` — reachable from any phone or network in the world.
-No port forwarding, no static IP at home, no monthly tunnel subscription.
+Your app runs at `localhost:3000`. OntuTunnel makes it open at `https://shop.example.com`
+from any phone or network in the world. No router setup, no monthly tunnel bill.
 
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-0a1b3c)](#install)
 [![Build](https://github.com/itsfaiyaz/OntuTunnel/actions/workflows/build.yml/badge.svg)](https://github.com/itsfaiyaz/OntuTunnel/actions/workflows/build.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-16a34a)](LICENSE)
-[![Swift](https://img.shields.io/badge/Swift-5.9-F05138?logo=swift&logoColor=white)](Package.swift)
-[![Go](https://img.shields.io/badge/Go-1.27%2B-00ADD8?logo=go&logoColor=white)](cross/go.mod)
 
 <img src="docs/screenshots/dashboard-dark.png" alt="OntuTunnel dashboard" width="900">
 
@@ -24,33 +21,29 @@ No port forwarding, no static IP at home, no monthly tunnel subscription.
 
 ## Why OntuTunnel?
 
-You built something on your laptop and want to show it — to a client, on your phone, to a teammate —
-on **your own domain**, with a real certificate. The usual options are painful:
+You built something on your laptop and want to show it to a client, a teammate or your own phone,
+on **your own domain** with a real HTTPS lock.
 
-| | Port forwarding | ngrok-style services | **OntuTunnel** |
+| | Router port forwarding | ngrok-style services | **OntuTunnel** |
 |---|---|---|---|
-| Your own domain | Only with a static IP | Paid plans | ✅ Always |
-| Works behind CGNAT / any Wi-Fi | ❌ | ✅ | ✅ |
-| HTTPS certificate | Do it yourself | ✅ | ✅ Automatic (Let's Encrypt / Cloudflare) |
+| Your own domain | Only with a static IP | Paid plans | ✅ |
+| Works on any Wi-Fi / mobile network | ❌ | ✅ | ✅ |
+| HTTPS | Do it yourself | ✅ | ✅ Automatic |
 | Many sites at once | Manual | Paid | ✅ Unlimited |
-| One DNS record for every new site | ❌ | ❌ | ✅ Wildcard domains |
-| Your data stays on your infrastructure | ✅ | ❌ | ✅ |
-| Cost | Router + static IP | Monthly | **Free & open source** |
+| Cost | Static IP fee | Monthly | **Free, open source** |
 
 ## Features
 
-- 🌍 **Three ways to go live** — pick what you have:
-  - **Your own server (SSH)** — any VPS / cloud VM with a static IP. OntuTunnel logs in, sets everything up, and keeps a tunnel open from your computer.
-  - **Your static IP** — no server at all; your computer serves the sites itself on 80/443.
-  - **Cloudflare Tunnel** — **completely free, nothing else needed**: no server, no static IP, no router change.
-- 🔒 **Automatic HTTPS** — Let's Encrypt certificates issued and renewed for you (or Cloudflare's edge).
-- ✳️ **Wildcard domains** — add `*.dev.example.com` once; every new service (`app.dev.example.com`, `shop.dev.example.com`…) is live instantly, no DNS step.
-- 🧭 **Sees what's running** — lists the ports open on your machine; click **Publish** to put one online. Hide databases and caches you never publish.
-- 🟢 **Live health for every site** — local app · DNS · HTTPS, checked end-to-end from the internet's point of view.
-- 🖥️ **Native macOS app + browser dashboard** — menu-bar status, plus the same dashboard at `http://localhost:7777` (optionally from your phone with an access key).
-- 🛡️ **Safe on servers you already use** — if nginx is already running other sites, OntuTunnel only adds its own `ontutunnel-<domain>.conf` files, tests the config before every reload, rolls back on error, and uses random free ports bound to `127.0.0.1`. One click removes everything it added.
-- ⚙️ **Start commands with keep-alive** — let OntuTunnel start your dev server (`npm run dev`, `bench start`, …) and restart it if it crashes.
-- 🧩 **Frappe / ERPNext aware** — pass the site name per service (`X-Frappe-Site-Name`), realtime (Socket.IO) port supported.
+- 🌍 **Three ways to go live**: your own server, your static IP, or a free Cloudflare Tunnel.
+- 🔒 **HTTPS done for you**: certificates are created and renewed automatically.
+- ✳️ **Wildcard domains**: add one DNS record for `*.dev.example.com`, and every new site under it works at once.
+- 🧭 **Sees what's running**: lists the ports open on your computer. Click **Publish** to put one online.
+- 🟢 **Health at a glance**: for every site it checks the app, DNS and HTTPS, from the internet's side.
+- 📶 **Survives network changes**: switch Wi-Fi, use a hotspot or get a new IP, and it reconnects in seconds.
+- ☕ **Keep awake** (optional): stops the computer from sleeping while your sites are online.
+- 🖥️ **App + browser dashboard**: native Mac app, and the same dashboard at `http://localhost:7777` on every system.
+- 🛡️ **Safe on servers you already use**: it only adds its own files and never edits yours (see [below](#what-it-changes-on-your-server)).
+- 🧩 **Frappe / ERPNext ready**: site name per domain, realtime (Socket.IO) port supported.
 
 ## Screenshots
 
@@ -58,140 +51,115 @@ on **your own domain**, with a real certificate. The usual options are painful:
 |---|---|
 | <img src="docs/screenshots/dashboard-dark.png" alt="Dark dashboard"> | <img src="docs/screenshots/dashboard-light.png" alt="Light dashboard"> |
 
-<p align="center"><img src="docs/screenshots/dashboard-drawer.png" width="820" alt="Service details panel"><br><sub>Click any site for its full health, the DNS record it needs, and quick actions.</sub></p>
+<p align="center"><img src="docs/screenshots/dashboard-drawer.png" width="820" alt="Service details panel"><br><sub>Click a site to see its health, the DNS record it needs, and quick actions.</sub></p>
 
 ## How it works
 
 ```mermaid
 flowchart LR
     V["🌍 Visitor<br/>any phone, any network"] -->|"https://shop.example.com"| S
-    subgraph S["Your server (static IP)"]
-      N["nginx / Caddy<br/>HTTPS"] --> P["127.0.0.1:random port"]
+    subgraph S["Your server (fixed IP)"]
+      N["nginx / Caddy<br/>HTTPS"] --> P["private port"]
     end
-    P <-->|"SSH tunnel<br/>(your computer connects out)"| M
+    P <-->|"SSH tunnel<br/>(your computer dials out)"| M
     subgraph M["Your computer"]
       O["OntuTunnel"] --> A["localhost:8001<br/>your app"]
     end
 ```
 
-Because **your computer opens the connection**, it works on any Wi-Fi, behind any router or carrier-grade NAT.
-With **Cloudflare Tunnel** the server box is Cloudflare's edge — free.
+Your domain points to the **server**, not to your computer. Your computer **dials out** to the server and
+keeps the line open. So your home IP, router or Wi-Fi doesn't matter. With **Cloudflare Tunnel**,
+Cloudflare plays the server's part, for free.
 
-## Choose your way to go live
+## Pick a way to go live
 
 | Mode | You need | Cost | DNS |
 |---|---|---|---|
-| **My server (SSH)** | A VPS / Google Cloud / AWS VM with a static IP | Server bill | `A` record → server IP (or one wildcard) |
-| **My static IP** | A static public IPv4 from your ISP + port forwarding 80/443 | ISP add-on | `A` record → your static IP |
-| **Cloudflare Tunnel** | A free Cloudflare account with your domain on it | **Free** | Automatic |
+| **My server (SSH)** | Any VPS or cloud VM with a fixed IP | Your server bill | `A` record → server IP |
+| **My static IP** | A static IP from your internet provider, and ports 80/443 open | Provider's fee | `A` record → your IP |
+| **Cloudflare Tunnel** | A free Cloudflare account with your domain | **Free** | Set up for you |
 
 ## Install
 
-### macOS (14 Sonoma or newer · Apple Silicon & Intel)
+Download the file for your system from **[Releases](../../releases)**.
 
-1. Download `OntuTunnel-x.y.z.dmg` from **[Releases](../../releases)**.
-2. Drag **OntuTunnel** into **Applications** and open it.
-3. First launch only: macOS may say it can't verify the developer → **System Settings → Privacy & Security → Open Anyway**.
+| System | File | Notes |
+|---|---|---|
+| **macOS 14+** (Apple Silicon & Intel) | `OntuTunnel-x.y.z.dmg` | Drag to Applications. First open: **System Settings → Privacy & Security → Open Anyway**. |
+| **Windows 10/11** (x64, ARM64) | `OntuTunnel-Setup-x.y.z-x64.exe` or the portable `.zip` | If SmartScreen warns: **More info → Run anyway**. |
+| **Debian / Ubuntu** | `ontutunnel_x.y.z_amd64.deb` | `sudo apt install ./ontutunnel_*.deb` |
+| **Fedora / RHEL** | `ontutunnel-x.y.z.x86_64.rpm` | `sudo dnf install ./ontutunnel-*.rpm` |
+| **Any Linux** | `.tar.gz` | Unpack and run `./ontutunnel` |
 
-### Windows 10 / 11 (x64 · ARM64)
+On Windows and Linux the dashboard opens in your browser at **http://localhost:7777**.
+Cloudflare mode also needs [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/).
 
-1. Download `OntuTunnel-Setup-x.y.z-x64.exe` from **[Releases](../../releases)** and run it
-   (or use the portable `.zip` — no install needed).
-2. OntuTunnel starts in the background and opens its dashboard at **http://localhost:7777**.
-3. SmartScreen may warn about an unknown publisher → **More info → Run anyway**.
-
-> For *My server (SSH)* nothing else is needed. For *Cloudflare Tunnel* install
-> [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/).
-
-### Linux (x64 · ARM64)
+<details>
+<summary>Linux extras · build from source</summary>
 
 ```bash
-# Debian / Ubuntu
-sudo apt install ./ontutunnel_x.y.z_amd64.deb
-# Fedora / RHEL
-sudo dnf install ./ontutunnel-x.y.z.x86_64.rpm
-# any distro: unpack the .tar.gz and run ./ontutunnel
+# start after login
+systemctl --user enable --now ontutunnel
+# "My static IP" mode: allow ports 80/443 once
+sudo setcap cap_net_bind_service=+ep /usr/bin/ontutunnel
 ```
-
-Start it from the app menu or run `ontutunnel`; the dashboard opens at **http://localhost:7777**.
-To keep it running after login: `systemctl --user enable --now ontutunnel`.
-*My static IP* mode needs ports 80/443 once: `sudo setcap cap_net_bind_service=+ep /usr/bin/ontutunnel`.
-
-### Build from source
 
 ```bash
-git clone https://github.com/itsfaiyaz/OntuTunnel.git
-cd OntuTunnel
-# macOS app (Xcode 15+ / Swift 5.9)
-./scripts/build-app.sh --install     # builds and copies OntuTunnel.app to /Applications
-./scripts/make-dmg.sh                # universal DMG in dist/
-# Windows / Linux (Go 1.27+, builds on any OS)
-./scripts/build-cross.sh             # dist/windows-*/ontutunnel.exe, dist/linux-*/ontutunnel
+git clone https://github.com/itsfaiyaz/OntuTunnel.git && cd OntuTunnel
+./scripts/build-app.sh --install   # macOS app (Xcode 15+)
+./scripts/make-dmg.sh              # macOS DMG
+./scripts/build-cross.sh           # Windows + Linux (Go 1.27+)
 ```
 
-The macOS app has no third-party dependencies. The Windows/Linux edition (in [`cross/`](cross)) is a single
-binary with the same features and a built-in browser dashboard; installers are built by
-[GitHub Actions](.github/workflows/build.yml) on every push.
+The Mac app is Swift with no extra libraries. The Windows/Linux version lives in [`cross/`](cross) (Go, one file to run).
+Every push is built by [GitHub Actions](.github/workflows/build.yml).
+</details>
 
 ## Quick start
 
-1. **Connection** → choose **My server**, **My static IP** or **Cloudflare Tunnel** and follow the steps shown in the app (each step shows ✓ or what to fix).
-2. **Dashboard** → in *Running on this Mac*, click **Publish** next to your app's port — or **Add Service**.
-3. Enter a domain:
-   - under your **wildcard** (e.g. `shop` → `shop.dev.example.com`) — live immediately, or
-   - any **custom domain** — add the `A` record OntuTunnel shows you.
-4. Watch the row turn green: **app · dns · https**. Done — open it from anywhere.
+1. **Connection**: choose a mode and follow the steps. Each step shows ✓, or tells you what to fix.
+2. **Dashboard**: click **Publish** next to your app's port (or **Add Service**).
+3. **Domain**: type a name under your wildcard (`shop` → `shop.dev.example.com`), or use any domain and add the `A` record it shows.
+4. Wait for **app · dns · https** to turn green. Done. Open it from anywhere.
 
-### One-time wildcard setup (recommended)
+**Tip: set up a wildcard once.** In **Domains**, add `dev.example.com`, then add one DNS record:
+`A`  `*.dev` → your server IP. Every new `something.dev.example.com` now works without touching DNS.
 
-**Domains** → add `dev.example.com`, then create a single DNS record:
+## What it changes on your server
 
-| Type | Name | Value |
-|---|---|---|
-| `A` | `*.dev` | your server or static IP |
+Only its own things. Nothing you already run is edited.
 
-Every service named `something.dev.example.com` now goes live with HTTPS without touching DNS again.
-
-## What OntuTunnel changes on your server
-
-Only things it owns — nothing you already run is edited:
-
-| Server already has | OntuTunnel adds |
+| Your server has | OntuTunnel adds |
 |---|---|
-| Nothing on 80/443 | Its own Caddy (`/opt/ontutunnel`, service `ontutunnel-caddy`) with automatic HTTPS |
-| nginx with other sites | `/etc/nginx/conf.d/ontutunnel-<domain>.conf` per site (tested with `nginx -t`, rolled back on failure) + certbot certificates |
-| Something else on 80/443 | Nothing — it stops and tells you |
+| Nothing on ports 80/443 | Its own Caddy web server with automatic HTTPS |
+| nginx with other sites | One `ontutunnel-<domain>.conf` per site. Checked with `nginx -t` first, undone if anything fails |
+| Something else on 80/443 | Nothing. It stops and tells you |
 
-Tunnel ports are random, unused, and bound to the server's `127.0.0.1` only.
-**Connection → Remove OntuTunnel from server** deletes everything it added.
-
-## Browser dashboard
-
-While the app runs, open **http://localhost:7777**. Turn on *Allow other devices on my Wi-Fi* in Settings to
-control it from your phone — every request then needs the access key shown in the app.
-
-## Roadmap
-
-- [x] macOS app — SSH relay, static IP, Cloudflare Tunnel, wildcard domains, browser dashboard
-- [x] **Windows** app — installer + portable zip (x64, ARM64)
-- [x] **Linux** app — .deb, .rpm, .tar.gz (x64, ARM64)
-- [ ] Automatic DNS updates via provider APIs (Cloudflare, Hostinger, GoDaddy)
-- [ ] Basic-auth protection per site
-- [ ] Notarized macOS build
+Tunnel ports are random and private (`127.0.0.1` only). **Remove OntuTunnel from server** deletes everything it added.
 
 ## FAQ
 
-**Is it really free?** Yes — OntuTunnel is MIT-licensed. With Cloudflare Tunnel you need nothing else; with your own server you only pay for the server you already have.
+**Is it free?** Yes, MIT licensed. Cloudflare mode needs nothing else. Server mode only costs your own server.
 
-**Does my traffic go through anyone else's servers?** Only through infrastructure you choose: your own server, your own IP, or your Cloudflare account.
+**Does my traffic pass through someone else?** No. Only through what you pick: your server, your IP, or your Cloudflare account.
 
-**Can I run several sites at once?** Yes, as many as you like — each gets its own domain and certificate.
+**I changed Wi-Fi / my IP changed. Does it still work?** Yes. It notices the change and reconnects within seconds. Only *My static IP* mode is tied to one network.
 
-**What if my computer sleeps?** Sites are served from your computer, so keep it awake while they need to be online. OntuTunnel reconnects automatically after sleep or network changes.
+**What if my computer sleeps?** A sleeping computer can't serve sites. Turn on **Settings → Keep this computer awake**. The screen can still turn off. Closing a laptop lid usually still sleeps it.
+
+**Can I control it from my phone?** Yes. In Settings, allow other devices on your Wi-Fi and open the link with the access key.
+
+## Roadmap
+
+- [x] macOS, Windows and Linux apps
+- [x] Server, static IP and Cloudflare modes, wildcard domains, browser dashboard
+- [ ] Automatic DNS records through provider APIs (Cloudflare, Hostinger, GoDaddy)
+- [ ] Password protection per site
+- [ ] Notarized macOS build
 
 ## Contributing
 
-Issues and pull requests are welcome. For larger changes, please open an issue first to discuss what you'd like to change.
+Issues and pull requests are welcome. For bigger changes, please open an issue first.
 
 ## License
 
@@ -199,6 +167,6 @@ Issues and pull requests are welcome. For larger changes, please open an issue f
 
 <div align="center">
 
-If OntuTunnel saves you time, please **⭐ star the repo** — it helps others find it.
+If OntuTunnel helps you, please **⭐ star the repo**. It helps others find it.
 
 </div>

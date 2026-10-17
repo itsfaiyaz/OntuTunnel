@@ -73,6 +73,7 @@ final class AppModel: ObservableObject {
         started = true
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
         for service in config.services where service.autoStart && service.hasCommand { startCommand(service) }
+        applyKeepAwake()
         if config.autoConnect { startMode() }
         startWebDashboard()
         Task {

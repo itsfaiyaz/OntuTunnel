@@ -100,6 +100,7 @@ func (a *App) Start() {
 			a.StartCommand(s.ID)
 		}
 	}
+	a.applyKeepAwake()
 	if cfg.AutoConnect {
 		a.StartMode()
 	}

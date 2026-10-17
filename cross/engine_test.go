@@ -10,7 +10,8 @@ import (
 )
 
 // Live checks against a real server — only run when OT_TEST_HOST is set:
-//   OT_TEST_HOST=1.2.3.4 OT_TEST_USER=ubuntu OT_TEST_KEY=~/.ssh/id_ed25519 go test -run Live -v
+//
+//	OT_TEST_HOST=1.2.3.4 OT_TEST_USER=ubuntu OT_TEST_KEY=~/.ssh/id_ed25519 go test -run Live -v
 func liveStore(t *testing.T) *Store {
 	host := os.Getenv("OT_TEST_HOST")
 	if host == "" {

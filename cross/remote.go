@@ -84,6 +84,27 @@ func Run(store *Store, script string, timeout time.Duration) (string, string, er
 		return "", "", err
 	}
 	defer client.Close()
+	return runOn(client, script, timeout)
+}
+
+// freeStalePortsScript ends old SSH sessions that still hold our tunnel
+// ports. After a network change the server keeps the dead session for
+// minutes (its ClientAlive timeout) and the new tunnel can't take the ports
+// until it's gone. Only sshd processes listening on these ports are touched.
+func freeStalePortsScript(ports []int) string {
+	var ps []string
+	for _, p := range ports {
+		ps = append(ps, fmt.Sprint(p))
+	}
+	return `for p in ` + strings.Join(ps, " ") + `; do
+  for pid in $( (sudo -n ss -ltnpH "sport = :$p" 2>/dev/null || ss -ltnpH "sport = :$p") | grep -o 'pid=[0-9]*' | cut -d= -f2 | sort -u); do
+    case "$(ps -o comm= -p "$pid")" in sshd*) sudo -n kill "$pid" 2>/dev/null || kill "$pid" 2>/dev/null; echo "freed $p";; esac
+  done
+done
+true`
+}
+
+func runOn(client *ssh.Client, script string, timeout time.Duration) (string, string, error) {
 	sess, err := client.NewSession()
 	if err != nil {
 		return "", "", err

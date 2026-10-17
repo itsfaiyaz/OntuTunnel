@@ -183,6 +183,8 @@ struct AppConfig: Codable {
     var services: [Service] = []
     /// Start the tunnel when OntuTunnel opens.
     var autoConnect: Bool = true
+    /// Stop the Mac from going to sleep on its own while OntuTunnel runs.
+    var keepAwake: Bool = false
     /// Ports hidden from "Running on this Mac" (databases, caches, …).
     var hiddenPorts: [Int] = []
     /// Wildcard bases, e.g. "dev.example.com": DNS has *.dev.example.com → this
@@ -204,6 +206,7 @@ struct AppConfig: Codable {
         serverMode = try c.decodeIfPresent(ServerMode.self, forKey: .serverMode)
         services = try c.decodeIfPresent([Service].self, forKey: .services) ?? []
         autoConnect = try c.decodeIfPresent(Bool.self, forKey: .autoConnect) ?? true
+        keepAwake = try c.decodeIfPresent(Bool.self, forKey: .keepAwake) ?? false
         hiddenPorts = try c.decodeIfPresent([Int].self, forKey: .hiddenPorts) ?? []
         wildcardBases = try c.decodeIfPresent([String].self, forKey: .wildcardBases) ?? []
         published = try c.decodeIfPresent([String].self, forKey: .published)

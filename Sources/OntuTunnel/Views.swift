@@ -503,6 +503,10 @@ struct SettingsView: View {
             Section("Start-up") {
                 Toggle("Open OntuTunnel when I log in", isOn: Binding(get: { model.launchAtLogin }, set: { model.setLaunchAtLogin($0) }))
                 Toggle("Connect the tunnel when OntuTunnel opens", isOn: $model.config.autoConnect)
+                Toggle("Keep this Mac awake while OntuTunnel is running", isOn: Binding(
+                    get: { model.config.keepAwake }, set: { model.config.keepAwake = $0; model.applyKeepAwake() }))
+                Text("Your sites stay online when you leave the Mac. The screen can still turn off. Closing the lid still sleeps the Mac, unless it's plugged in with an external display.")
+                    .font(.caption).foregroundStyle(.secondary)
                 Text("Per service, \"Start when OntuTunnel opens\" and \"Keep alive\" are in its Edit screen.")
                     .font(.caption).foregroundStyle(.secondary)
             }

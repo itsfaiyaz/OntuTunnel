@@ -274,11 +274,13 @@ func (a *App) apiAction(w http.ResponseWriter, r *http.Request) {
 	case "settings":
 		a.store.Update(func(c *Config) {
 			c.AutoConnect = boolean("autoConnect")
+			c.KeepAwake = boolean("keepAwake")
 			if c.Web.AllowLAN != boolean("allowLAN") {
 				c.Web.AllowLAN = boolean("allowLAN")
 				a.Log("Settings", "Restart OntuTunnel to apply the browser access change.", false)
 			}
 		})
+		a.applyKeepAwake()
 	default:
 		reply(fmt.Errorf("unknown action"))
 		return

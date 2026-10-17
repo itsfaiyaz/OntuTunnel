@@ -65,6 +65,21 @@ enum RemoteServer {
         }
     }
 
+    /// Ends old SSH sessions that still hold our tunnel ports on the server.
+    /// After a network change the server keeps the dead session for minutes
+    /// (its ClientAlive timeout), and the new tunnel can't take the ports
+    /// until it's gone. Only sshd processes listening on these ports are touched.
+    static func freeStalePortsScript(_ ports: [Int]) -> String {
+        """
+        for p in \(ports.map(String.init).joined(separator: " ")); do
+          for pid in $( (sudo -n ss -ltnpH "sport = :$p" 2>/dev/null || ss -ltnpH "sport = :$p") | grep -o 'pid=[0-9]*' | cut -d= -f2 | sort -u); do
+            case "$(ps -o comm= -p "$pid")" in sshd*) sudo -n kill "$pid" 2>/dev/null || kill "$pid" 2>/dev/null; echo "freed $p";; esac
+          done
+        done
+        true
+        """
+    }
+
     /// Shell line that writes `content` to `path` as root (base64: safe for any text).
     static func writeFile(_ path: String, _ content: String) -> String {
         let b64 = Data(content.utf8).base64EncodedString()
