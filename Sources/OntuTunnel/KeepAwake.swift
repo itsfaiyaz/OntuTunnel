@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import IOKit.pwr_mgt
 
@@ -19,6 +20,14 @@ enum KeepAwake {
 }
 
 extension AppModel {
+    func applyAppearance() {
+        switch config.appearance {
+        case "light": NSApp.appearance = NSAppearance(named: .aqua)
+        case "dark": NSApp.appearance = NSAppearance(named: .darkAqua)
+        default: NSApp.appearance = nil
+        }
+    }
+
     func applyKeepAwake() {
         KeepAwake.set(config.keepAwake)
         if config.keepAwake { log("Settings", "This Mac will stay awake while OntuTunnel runs") }

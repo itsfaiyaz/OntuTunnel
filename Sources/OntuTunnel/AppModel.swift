@@ -71,6 +71,7 @@ final class AppModel: ObservableObject {
     func startIfNeeded() {
         guard !started else { return }
         started = true
+        applyAppearance()
         if Demo.on { Demo.fill(self); return }
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
         for service in config.services where service.autoStart && service.hasCommand { startCommand(service) }

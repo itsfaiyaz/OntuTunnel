@@ -41,7 +41,7 @@ on **your own domain** with a real HTTPS lock.
 - 🟢 **Health at a glance**: for every site it checks the app, DNS and HTTPS, from the internet's side.
 - 📶 **Survives network changes**: switch Wi-Fi, use a hotspot or get a new IP, and it reconnects in seconds.
 - ☕ **Keep awake** (optional): stops the computer from sleeping while your sites are online.
-- 🖥️ **App + browser dashboard**: native Mac app, and the same dashboard at `http://localhost:7777` on every system.
+- 🖥️ **App + browser dashboard**: native Mac app, and the same dashboard at `http://localhost:7777` on every system. Light, dark or system theme.
 - 🛡️ **Safe on servers you already use**: it only adds its own files and never edits yours (see [below](#what-it-changes-on-your-server)).
 - 🧩 **Frappe / ERPNext ready**: site name per domain, realtime (Socket.IO) port supported.
 
@@ -168,7 +168,7 @@ Issues and pull requests are welcome. For bigger changes, please open an issue f
 
 ## License
 
-[MIT](LICENSE) © Md Faiyaz Ansari ([@itsfaiyaz](https://github.com/itsfaiyaz))
+[MIT](LICENSE) © Md Faiyaz Ansari ([@itsfaiyaz](https://github.com/itsfaiyaz)) · Made by **[Ontu Technologies](https://ontu.in)**
 
 <div align="center">
 

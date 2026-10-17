@@ -500,6 +500,15 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
+            Section("Appearance") {
+                Picker("Theme", selection: Binding(
+                    get: { model.config.appearance }, set: { model.config.appearance = $0; model.applyAppearance() })) {
+                    Text("Same as Mac").tag("system")
+                    Text("Light").tag("light")
+                    Text("Dark").tag("dark")
+                }
+                .pickerStyle(.segmented)
+            }
             Section("Start-up") {
                 Toggle("Open OntuTunnel when I log in", isOn: Binding(get: { model.launchAtLogin }, set: { model.setLaunchAtLogin($0) }))
                 Toggle("Connect the tunnel when OntuTunnel opens", isOn: $model.config.autoConnect)

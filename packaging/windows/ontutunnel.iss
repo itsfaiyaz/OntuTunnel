@@ -8,8 +8,8 @@
 AppId={{6B1B2F2E-8D5A-4C2B-9E0F-0A1B3C3E8BFF}
 AppName={#AppName}
 AppVersion={#AppVersion}
-AppPublisher=itsfaiyaz
-AppPublisherURL=https://github.com/itsfaiyaz/OntuTunnel
+AppPublisher=Ontu Technologies
+AppPublisherURL=https://ontu.in
 AppSupportURL=https://github.com/itsfaiyaz/OntuTunnel/issues
 DefaultDirName={autopf}\OntuTunnel
 DefaultGroupName=OntuTunnel

@@ -7,7 +7,8 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230a1b3c'/%3E%3Cpath d='M10 13h12m-3-3 3 3-3 3M22 19H10m3-3-3 3 3 3' fill='none' stroke='%233e8bff' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <style>
 :root{--bg:#f5f7fb;--panel:#fff;--panel2:#f0f3f8;--text:#0e1726;--muted:#64748b;--line:#e3e8f0;--ontu:#3e8bff;--green:#16a34a;--orange:#d97706;--red:#dc2626;--gray:#94a3b8;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
-@media (prefers-color-scheme:dark){:root{--bg:#050c1b;--panel:#0b1529;--panel2:#0f1c35;--text:#e6edf8;--muted:#8a9ab5;--line:#1c2a45}}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#050c1b;--panel:#0b1529;--panel2:#0f1c35;--text:#e6edf8;--muted:#8a9ab5;--line:#1c2a45}}
+:root[data-theme=dark]{--bg:#050c1b;--panel:#0b1529;--panel2:#0f1c35;--text:#e6edf8;--muted:#8a9ab5;--line:#1c2a45}
 *{box-sizing:border-box}html,body{margin:0;height:100%}body{background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;display:flex}
 a{color:var(--ontu)}code{font-family:var(--mono);font-size:12.5px;background:var(--panel2);padding:1px 5px;border-radius:5px}
 button{font:inherit;font-size:13px;padding:7px 12px;border-radius:9px;border:1px solid var(--line);background:var(--panel);color:var(--text);cursor:pointer;white-space:nowrap}
@@ -53,6 +54,12 @@ details>summary{cursor:pointer;color:var(--muted);padding:0 14px 12px}.log{font:
 .modal .box{background:var(--panel);border-radius:16px;padding:20px;width:min(560px,100%);max-height:90vh;overflow:auto;display:grid;gap:12px}
 .burger{display:none}@media (max-width:760px){nav{position:fixed;inset:0 auto 0 0;z-index:9;transform:translateX(-100%);transition:transform .2s}nav.open{transform:none}.burger{display:inline-block}main{padding:16px}}
 </style>
+<script>
+function getTheme(){try{return localStorage.getItem('ot-theme')||'auto'}catch(e){return 'auto'}}
+function setTheme(t){try{localStorage.setItem('ot-theme',t)}catch(e){}if(t==='auto')document.documentElement.removeAttribute('data-theme');else document.documentElement.setAttribute('data-theme',t);var b=document.getElementById('themeBtn');if(b)b.textContent={auto:'◐ Auto',light:'☀ Light',dark:'☾ Dark'}[t]}
+function nextTheme(){setTheme({auto:'light',light:'dark',dark:'auto'}[getTheme()])}
+setTheme(getTheme());
+</script>
 </head>
 <body>
 <nav id="nav">
@@ -188,6 +195,7 @@ function domains(){const ws=S.wildcards||{},bases=S.config.wildcardBases||[];
 function logs(){return `<div class="page">${head('Logs','')}<section class="panel"><div class="log">${(S.logs||[]).slice().reverse().map(l=>`<div class="${l.error?'err':''}">${esc(l.time)} [${esc(l.source)}] ${esc(l.text)}</div>`).join('')}</div></section></div>`}
 
 function settings(){const c=S.config;return `<div class="page">${head('Settings','')}<section class="panel pad" style="display:grid;gap:12px">
+  <label class="f">Theme<select id="g_theme" onchange="setTheme(this.value)" style="max-width:220px">${['auto','light','dark'].map(t=>`<option value="${t}" ${getTheme()===t?'selected':''}>${{auto:'Same as system',light:'Light',dark:'Dark'}[t]}</option>`).join('')}</select></label>
   <label class="chk"><input type="checkbox" id="g_auto" ${c.autoConnect?'checked':''}> Connect automatically when OntuTunnel starts</label>
   <label class="chk"><input type="checkbox" id="g_awake" ${c.keepAwake?'checked':''}> Keep this computer awake while OntuTunnel is running</label>
   <p class="muted" style="margin:-6px 0 0 26px;font-size:12.5px">Your sites stay online when you leave the computer. The screen can still turn off. Closing a laptop lid usually still puts it to sleep.</p>

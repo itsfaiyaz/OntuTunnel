@@ -9,7 +9,8 @@ enum WebPage {
 <title>OntuTunnel</title>
 <style>
 :root{--bg:#f5f7fb;--panel:#fff;--panel2:#f0f3f8;--text:#0e1726;--muted:#64748b;--line:#e3e8f0;--ontu:#3e8bff;--green:#16a34a;--orange:#d97706;--red:#dc2626;--gray:#94a3b8;--mono:ui-monospace,SFMono-Regular,Menlo,monospace}
-@media (prefers-color-scheme:dark){:root{--bg:#050c1b;--panel:#0b1529;--panel2:#0f1c35;--text:#e6edf8;--muted:#8a9ab5;--line:#1c2a45}}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#050c1b;--panel:#0b1529;--panel2:#0f1c35;--text:#e6edf8;--muted:#8a9ab5;--line:#1c2a45}}
+:root[data-theme=dark]{--bg:#050c1b;--panel:#0b1529;--panel2:#0f1c35;--text:#e6edf8;--muted:#8a9ab5;--line:#1c2a45}
 *{box-sizing:border-box}html,body{margin:0}body{background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif}
 a{color:inherit}button{font:inherit;font-size:13px;padding:7px 12px;border-radius:9px;border:1px solid var(--line);background:var(--panel);color:var(--text);cursor:pointer;white-space:nowrap}
 button:hover{border-color:var(--ontu)}button.primary{background:var(--ontu);border-color:var(--ontu);color:#fff}button.ghost{background:transparent}button.danger{color:var(--red)}
@@ -47,6 +48,12 @@ form.add{display:grid;grid-template-columns:1.2fr 1.8fr .6fr 1fr auto;gap:8px;pa
 .log{font:12px var(--mono);white-space:pre-wrap;max-height:260px;overflow:auto;padding:0 14px 14px}.err{color:var(--red)}
 .empty{padding:40px;text-align:center;color:var(--muted)}#msg{color:var(--red);font-size:13px;padding:0 14px 10px}.hint{color:var(--muted);font-size:12.5px;padding:0 14px 12px}
 </style>
+<script>
+function getTheme(){try{return localStorage.getItem('ot-theme')||'auto'}catch(e){return 'auto'}}
+function setTheme(t){try{localStorage.setItem('ot-theme',t)}catch(e){}if(t==='auto')document.documentElement.removeAttribute('data-theme');else document.documentElement.setAttribute('data-theme',t);var b=document.getElementById('themeBtn');if(b)b.textContent={auto:'◐ Auto',light:'☀ Light',dark:'☾ Dark'}[t]}
+function nextTheme(){setTheme({auto:'light',light:'dark',dark:'auto'}[getTheme()])}
+setTheme(getTheme());
+</script>
 </head>
 <body>
 <div class="top"><div class="in">
@@ -54,6 +61,7 @@ form.add{display:grid;grid-template-columns:1.2fr 1.8fr .6fr 1fr auto;gap:8px;pa
   <span id="mode" class="pill unknown">…</span>
   <span style="flex:1"></span>
   <input id="q" placeholder="Search sites, domains, ports" oninput="render(last)" style="width:240px">
+  <button class="ghost" id="themeBtn" onclick="nextTheme()" title="Theme">◐ Auto</button>
   <button class="ghost" onclick="act('refresh')" title="Refresh">↻</button>
   <button onclick="act('sync')">Sync</button>
   <button id="conn" class="primary" onclick="act(window.connected?'disconnect':'connect')">…</button>

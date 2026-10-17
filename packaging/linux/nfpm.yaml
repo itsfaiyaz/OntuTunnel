@@ -9,8 +9,8 @@ description: |
   Put your localhost on your own domain with HTTPS — via your own server
   (SSH tunnel), your static IP, or a free Cloudflare Tunnel.
   Dashboard at http://localhost:7777.
-vendor: itsfaiyaz
-homepage: https://github.com/itsfaiyaz/OntuTunnel
+vendor: Ontu Technologies
+homepage: https://ontu.in
 license: MIT
 recommends:
   - openssh-client
