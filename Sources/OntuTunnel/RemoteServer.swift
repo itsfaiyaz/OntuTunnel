@@ -185,7 +185,7 @@ enum RemoteServer {
         var out = "# Written by OntuTunnel — edits are replaced on the next sync.\n{\n\tadmin off\n"
         if !email.isEmpty { out += "\temail \(email)\n" }
         out += "}\n"
-        for s in services where s.enabled && s.remotePort > 0 && !s.normalizedDomain.isEmpty {
+        for s in services where s.enabled && s.remotePort > 0 && s.isSafe {
             out += "\n\(s.normalizedDomain) {\n"
             if s.remoteSocketPort > 0 {
                 out += "\treverse_proxy /socket.io/* 127.0.0.1:\(s.remoteSocketPort)\n"
@@ -307,7 +307,7 @@ enum RemoteServer {
     /// Writes our files, removes our files for deleted services, tests nginx,
     /// reloads — or rolls back to the previous files if the test fails.
     static func applyNginxScript(_ services: [Service], email: String, published: [String]?) -> String {
-        let active = services.filter { $0.enabled && $0.remotePort > 0 && !$0.normalizedDomain.isEmpty }
+        let active = services.filter { $0.enabled && $0.remotePort > 0 && $0.isSafe }
         let keep = active.map { "ontutunnel-\($0.normalizedDomain).conf" }.joined(separator: " ")
         var script = """
         set -e

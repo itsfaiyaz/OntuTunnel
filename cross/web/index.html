@@ -74,7 +74,7 @@ const $=s=>document.querySelector(s),esc=s=>String(s??"").replace(/[&<>"']/g,c=>
 let S=null,page='dashboard',filter='All',sel=null,viewMode=null,q='';
 const cv=c=>({ok:'green',warning:'orange',failed:'red'}[c]||'gray');
 async function load(){try{const r=await fetch('/api/state',{cache:'no-store'});if(r.ok){S=await r.json();render()}}catch(e){}}
-async function act(action,extra={}){const r=await fetch('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,...extra})});
+async function act(action,extra={}){const r=await fetch('/api/action',{method:'POST',headers:{'Content-Type':'application/json','X-OntuTunnel':'1'},body:JSON.stringify({action,...extra})});
   const j=await r.json().catch(()=>({}));if(j.error){toast(j.error)}setTimeout(load,300);setTimeout(load,2500);return j}
 function toast(t){const e=document.createElement('div');e.textContent=t;e.style.cssText='position:fixed;bottom:18px;right:18px;background:var(--red);color:#fff;padding:10px 14px;border-radius:10px;z-index:20;max-width:420px';document.body.appendChild(e);setTimeout(()=>e.remove(),5000)}
 const needs=s=>s.enabled&&(s.status.port=='closed'||!s.status.live.ok||!s.status.dns.ok);

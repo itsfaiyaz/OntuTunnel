@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 )
@@ -79,6 +80,15 @@ type Service struct {
 }
 
 func (s Service) NormalizedDomain() string { return strings.ToLower(strings.TrimSpace(s.Domain)) }
+
+var validSite = regexp.MustCompile(`^[A-Za-z0-9._-]{1,100}$`)
+
+// Safe: domain and Frappe site contain only characters that are harmless in
+// the nginx/Caddy files and shell scripts OntuTunnel sends to the server.
+func (s Service) Safe() bool {
+	return validHost.MatchString(s.NormalizedDomain()) &&
+		(s.FrappeSite == "" || validSite.MatchString(s.FrappeSite))
+}
 
 type Config struct {
 	Mode        Mode             `json:"mode"`

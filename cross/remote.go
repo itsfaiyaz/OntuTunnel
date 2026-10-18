@@ -262,7 +262,7 @@ WantedBy=multi-user.target
 func activeServices(services []Service) []Service {
 	var out []Service
 	for _, s := range services {
-		if s.Enabled && s.RemotePort > 0 && s.NormalizedDomain() != "" {
+		if s.Enabled && s.RemotePort > 0 && s.Safe() {
 			out = append(out, s)
 		}
 	}

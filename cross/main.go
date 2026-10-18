@@ -71,7 +71,9 @@ func main() {
 		c.Close()
 		if !*noBrowser {
 			client := http.Client{Timeout: 3 * time.Second}
-			resp, err := client.Post(fmt.Sprintf("http://127.0.0.1:%d/ui/show", cfg.Web.Port), "text/plain", nil)
+			req, _ := http.NewRequest(http.MethodPost, fmt.Sprintf("http://127.0.0.1:%d/ui/show", cfg.Web.Port), nil)
+			req.Header.Set("X-OntuTunnel", "1")
+			resp, err := client.Do(req)
 			if err == nil {
 				resp.Body.Close()
 			}

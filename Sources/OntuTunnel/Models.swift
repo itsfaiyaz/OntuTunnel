@@ -148,6 +148,12 @@ struct Service: Identifiable, Codable, Hashable {
     var remoteSocketPort: Int = 0
 
     var normalizedDomain: String { domain.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+    /// Domain and Frappe site contain only characters that are harmless in
+    /// the nginx/Caddy files and shell scripts sent to the server.
+    var isSafe: Bool {
+        HostsFile.isDomain(normalizedDomain)
+            && (frappeSite.isEmpty || frappeSite.range(of: "^[A-Za-z0-9._-]{1,100}$", options: .regularExpression) != nil)
+    }
     var hasCommand: Bool { !startCommand.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 
     init(name: String = "", domain: String = "", localPort: Int = 8001) {

@@ -3,12 +3,15 @@ package main
 import (
 	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/subtle"
 	"embed"
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"io/fs"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -58,16 +61,54 @@ func (a *App) auth(next http.Handler) http.Handler {
 				return
 			}
 			c, _ := r.Cookie("otkey")
-			if r.URL.Query().Get("key") == cfg.Web.Key {
+			if keyOK(r.URL.Query().Get("key"), cfg.Web.Key) {
 				http.SetCookie(w, &http.Cookie{Name: "otkey", Value: cfg.Web.Key, Path: "/", HttpOnly: true, SameSite: http.SameSiteStrictMode})
-			} else if c == nil || c.Value != cfg.Web.Key {
+			} else if c == nil || !keyOK(c.Value, cfg.Web.Key) {
 				http.Error(w, "Open the link with the access key shown in OntuTunnel → Settings.", http.StatusUnauthorized)
 				return
 			}
 		}
+		if !sameOriginOK(r) {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
 		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("X-Frame-Options", "DENY")
 		next.ServeHTTP(w, r)
 	})
+}
+
+// sameOriginOK stops other websites from using the dashboard API through
+// the browser (it can start commands and change servers):
+//   - the Host must be "localhost" or an IP address, so a website can't
+//     point its own domain at 127.0.0.1 (DNS rebinding);
+//   - changes need the X-OntuTunnel header, which a page from another site
+//     can't send without the browser asking us first (we never allow it);
+//   - an Origin, when sent, must be this dashboard.
+func keyOK(got, want string) bool {
+	return want != "" && subtle.ConstantTimeCompare([]byte(got), []byte(want)) == 1
+}
+
+func sameOriginOK(r *http.Request) bool {
+	host := strings.ToLower(r.Host)
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		host = h
+	}
+	host = strings.Trim(host, "[]")
+	if host != "localhost" && net.ParseIP(host) == nil {
+		return false
+	}
+	if o := r.Header.Get("Origin"); o != "" && o != "null" {
+		u, err := url.Parse(o)
+		if err != nil || !strings.EqualFold(u.Host, r.Host) {
+			return false
+		}
+	}
+	if r.Method != http.MethodGet && r.Method != http.MethodHead && r.Header.Get("X-OntuTunnel") != "1" {
+		return false
+	}
+	return true
 }
 
 func sshKeys() []string {
@@ -310,6 +351,10 @@ func (a *App) apiAction(w http.ResponseWriter, r *http.Request) {
 	case "saveStatic":
 		var s StaticIPConfig
 		_ = json.Unmarshal(req["staticIP"], &s)
+		if s.IP = strings.TrimSpace(s.IP); s.IP != "" && net.ParseIP(s.IP) == nil {
+			reply(fmt.Errorf("%q is not an IP address", s.IP))
+			return
+		}
 		a.store.Update(func(c *Config) { c.StaticIP = s })
 	case "setupCloudflare":
 		go a.SetupCloudflare()
@@ -319,8 +364,9 @@ func (a *App) apiAction(w http.ResponseWriter, r *http.Request) {
 			reply(err)
 			return
 		}
-		if !strings.Contains(s.NormalizedDomain(), ".") || s.LocalPort < 1 || s.LocalPort > 65535 {
-			reply(fmt.Errorf("enter a full domain and a port between 1 and 65535"))
+		s.FrappeSite = strings.TrimSpace(s.FrappeSite)
+		if !s.Safe() || s.LocalPort < 1 || s.LocalPort > 65535 || s.SocketPort < 0 || s.SocketPort > 65535 {
+			reply(fmt.Errorf("enter a full domain (letters, numbers, - and .), a valid Frappe site name and a port between 1 and 65535"))
 			return
 		}
 		a.SaveService(s)

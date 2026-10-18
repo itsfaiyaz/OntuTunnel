@@ -365,6 +365,11 @@ final class AppModel: ObservableObject {
     func save(_ service: Service) {
         var s = service
         s.domain = s.normalizedDomain
+        s.frappeSite = s.frappeSite.trimmingCharacters(in: .whitespaces)
+        guard s.isSafe else {
+            log("Services", "Not saved: \(s.domain) — use only letters, numbers, - and . in the domain and Frappe site", error: true)
+            return
+        }
         if let i = config.services.firstIndex(where: { $0.id == s.id }) {
             if config.services[i].socketPort != s.socketPort { s.remoteSocketPort = 0 }
             config.services[i] = s

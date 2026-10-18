@@ -155,7 +155,7 @@ function drawer(d){const el=document.getElementById('drawer'),lay=document.getEl
    <button class="danger" onclick="if(confirm('Delete ${esc(s.name||s.domain)}? It is also removed from the server.')){act('delete',{id:'${s.id}'});pick(null)}">Delete</button>`;}
 function pick(id){sel=id;render(last)}
 function toggleAdd(){const b=document.getElementById('addBox');b.style.display=b.style.display=='none'?'':'none';if(b.style.display=='')fName.focus()}
-async function act(action,extra={}){const r=await fetch('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,...extra})});
+async function act(action,extra={}){const r=await fetch('/api/action',{method:'POST',headers:{'Content-Type':'application/json','X-OntuTunnel':'1'},body:JSON.stringify({action,...extra})});
   const j=await r.json().catch(()=>({}));document.getElementById('msg').textContent=j.error||'';setTimeout(load,400);setTimeout(load,3000)}
 function prefill(port,proc){document.getElementById('addBox').style.display='';fPort.value=port;fName.value=proc+' on '+port;fDomain.focus()}
 function addService(e){e.preventDefault();act('add',{name:fName.value,domain:fDomain.value,localPort:parseInt(fPort.value,10),frappeSite:fSite.value});fName.value=fDomain.value=fPort.value=fSite.value=''}

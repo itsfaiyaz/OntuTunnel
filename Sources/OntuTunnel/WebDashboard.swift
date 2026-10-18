@@ -87,6 +87,30 @@ final class WebDashboard {
             path = String(path[..<q])
         }
 
+        // Other websites must not use this API through the browser (it can start
+        // commands and change the server): Host must be "localhost" or an IP
+        // (no DNS rebinding), an Origin must be this dashboard, and changes
+        // need the X-OntuTunnel header, which other sites can't send.
+        func header(_ name: String) -> String? {
+            lines.dropFirst().first { $0.lowercased().hasPrefix(name + ":") }
+                .map { String($0.dropFirst(name.count + 1)).trimmingCharacters(in: .whitespaces) }
+        }
+        let hostHeader = (header("host") ?? "").lowercased()
+        var hostName = hostHeader
+        if hostName.hasPrefix("[") { hostName = String(hostName.dropFirst().prefix { $0 != "]" }) }
+        else if let colon = hostName.lastIndex(of: ":") { hostName = String(hostName[..<colon]) }
+        var allowed = hostName == "localhost" || HostsFile.isIP(hostName)
+        if let origin = header("origin"), origin != "null" {
+            allowed = allowed && URL(string: origin).map { u in
+                (u.host.map { $0.contains(":") ? "[\($0)]" : $0 } ?? "") + (u.port.map { ":\($0)" } ?? "") == hostHeader
+            } == true
+        }
+        if method != "GET" && method != "HEAD" && header("x-ontutunnel") != "1" { allowed = false }
+        guard allowed else {
+            respond(c, 403, "text/plain", Data("Forbidden".utf8), extra: "")
+            return
+        }
+
         // access key when reachable from other devices
         var setCookie = ""
         if lan {
@@ -110,8 +134,8 @@ final class WebDashboard {
     }
 
     private func respond(_ c: NWConnection, _ status: Int, _ type: String, _ data: Data, extra: String) {
-        let reason = [200: "OK", 400: "Bad Request", 401: "Unauthorized", 404: "Not Found"][status] ?? "OK"
-        var out = Data("HTTP/1.1 \(status) \(reason)\r\nContent-Type: \(type)\r\nContent-Length: \(data.count)\r\nCache-Control: no-store\r\n\(extra)Connection: close\r\n\r\n".utf8)
+        let reason = [200: "OK", 400: "Bad Request", 401: "Unauthorized", 403: "Forbidden", 404: "Not Found"][status] ?? "OK"
+        var out = Data("HTTP/1.1 \(status) \(reason)\r\nContent-Type: \(type)\r\nContent-Length: \(data.count)\r\nCache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\nX-Frame-Options: DENY\r\n\(extra)Connection: close\r\n\r\n".utf8)
         out.append(data)
         c.send(content: out, completion: .contentProcessed { _ in c.cancel() })
     }

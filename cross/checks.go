@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"runtime"
@@ -83,6 +84,10 @@ func (a *App) TestFromOutside() {
 	cfg := a.store.Get()
 	ip := a.DNSTarget()
 	set := func(c OutsideCheck) { a.mu.Lock(); a.outside = c; a.mu.Unlock() }
+	if net.ParseIP(ip) == nil {
+		set(OutsideCheck{State: "warning", Text: "No public IP to test yet."})
+		return
+	}
 	if !cfg.Server.Complete() {
 		set(OutsideCheck{State: "warning", Text: "Needs a server to test from (Connection → My server: IP, user, key). Or open http://" + ip + " on a phone with mobile data."})
 		return

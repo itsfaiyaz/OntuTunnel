@@ -185,6 +185,8 @@ struct ServiceEditor: View {
     var valid: Bool {
         (useWildcard ? (!subdomain.trimmingCharacters(in: .whitespaces).isEmpty && !subdomain.contains(".") && !base.isEmpty)
                      : service.normalizedDomain.contains("."))
+            && (useWildcard || service.isSafe)
+            && (service.frappeSite.isEmpty || service.frappeSite.range(of: "^[A-Za-z0-9._-]{1,100}$", options: .regularExpression) != nil)
             && Int(portText).map { (1...65535).contains($0) } == true
             && (socketText.isEmpty || Int(socketText).map { (1...65535).contains($0) } == true)
     }
