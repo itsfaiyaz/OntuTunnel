@@ -45,3 +45,15 @@ Filename: "{app}\ontutunnel.exe"; Description: "Open OntuTunnel"; Flags: nowait 
 
 [UninstallRun]
 Filename: "{cmd}"; Parameters: "/C taskkill /IM ontutunnel.exe /F"; Flags: runhidden; RunOnceId: "StopOntuTunnel"
+
+[Code]
+// An update can't replace ontutunnel.exe while it runs: close it first
+// (the new version starts again at the end of setup).
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  Code: Integer;
+begin
+  Exec(ExpandConstant('{cmd}'), '/C taskkill /IM ontutunnel.exe /F', '', SW_HIDE, ewWaitUntilTerminated, Code);
+  Sleep(800);
+  Result := '';
+end;

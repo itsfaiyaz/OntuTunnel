@@ -5,3 +5,4 @@ dist/
 .swiftpm/
 *.xcodeproj/xcuserdata/
 Resources/AppIcon.iconset/
+cross/rsrc_windows_*.syso

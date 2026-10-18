@@ -62,11 +62,18 @@ func main() {
 	})
 	url := fmt.Sprintf("http://localhost:%d", cfg.Web.Port)
 
-	// already running? just open its dashboard
+	// already running? ask it to show its window (or open its dashboard)
 	if c, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", cfg.Web.Port), 500*time.Millisecond); err == nil {
 		c.Close()
 		if !*noBrowser {
-			openBrowser(url)
+			client := http.Client{Timeout: 3 * time.Second}
+			resp, err := client.Post(fmt.Sprintf("http://127.0.0.1:%d/ui/show", cfg.Web.Port), "text/plain", nil)
+			if err == nil {
+				resp.Body.Close()
+			}
+			if err != nil || resp.StatusCode != http.StatusNoContent {
+				openBrowser(url)
+			}
 		}
 		return
 	}
@@ -82,8 +89,16 @@ func main() {
 		os.Exit(1)
 	}
 	app.Log("OntuTunnel", fmt.Sprintf("Version %s — dashboard at %s", Version, url), false)
+	app.ShowUI = func() { openBrowser(url) }
 	app.Start()
 	go func() { _ = http.Serve(ln, app.Handler()) }()
+	if hasDesktop {
+		// Windows: app window + tray icon; returns when "Quit" is chosen.
+		// -no-browser (start with Windows) starts in the tray only.
+		runDesktop(app, url, !*noBrowser)
+		app.StopAll()
+		return
+	}
 	if !*noBrowser {
 		openBrowser(url)
 	}

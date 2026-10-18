@@ -42,7 +42,7 @@ on **your own domain** with a real HTTPS lock.
 - 📶 **Survives network changes**: switch Wi-Fi, use a hotspot or get a new IP, and it reconnects in seconds.
 - ☕ **Keep awake** (optional): stops the computer from sleeping while your sites are online.
 - 🧭 **Menu bar on Mac**: see every site's status and connect, open sites or start their apps without opening the window.
-- 🖥️ **App + browser dashboard**: native Mac app, and the same dashboard at `http://localhost:7777` on every system. Light, dark or system theme.
+- 🖥️ **Desktop apps**: a native Mac app (menu bar) and a Windows app (tray icon next to the clock). The same dashboard also opens in any browser at `http://localhost:7777`. Light, dark or system theme.
 - 🛡️ **Safe on servers you already use**: it only adds its own files and never edits yours (see [below](#what-it-changes-on-your-server)).
 - 🧩 **Frappe / ERPNext ready**: site name per domain, realtime (Socket.IO) port supported.
 
@@ -55,7 +55,7 @@ on **your own domain** with a real HTTPS lock.
 <p align="center"><sub>Click a site to see its health, its settings and quick actions.</sub></p>
 
 <details>
-<summary>Windows & Linux: the browser dashboard</summary>
+<summary>Windows & Linux: the same dashboard (Windows app window, Linux browser)</summary>
 <p align="center"><img src="docs/screenshots/web-dashboard.png" width="820" alt="Browser dashboard"></p>
 </details>
 
@@ -97,7 +97,9 @@ Download the file for your system from **[Releases](../../releases)**.
 | **Fedora / RHEL** | `ontutunnel-x.y.z.x86_64.rpm` | `sudo dnf install ./ontutunnel-*.rpm` |
 | **Any Linux** | `.tar.gz` | Unpack and run `./ontutunnel` |
 
-On Windows and Linux the dashboard opens in your browser at **http://localhost:7777**.
+On **Windows**, OntuTunnel opens as its own app window and keeps running in the tray (next to the clock) when you close it.
+On **Linux**, the dashboard opens in your browser at **http://localhost:7777**.
+In *My static IP* mode, OntuTunnel also adds your sites to this computer's hosts file, so they open here even when the router can't reach its own public IP.
 Cloudflare mode also needs [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/).
 
 <details>

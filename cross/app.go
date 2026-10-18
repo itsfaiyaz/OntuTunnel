@@ -34,6 +34,8 @@ type LogLine struct {
 
 // App is the whole OntuTunnel engine; the browser UI talks to it via JSON.
 type App struct {
+	// ShowUI opens the dashboard: the app window on Windows, else the browser.
+	ShowUI        func()
 	hostsMu       sync.Mutex
 	hostsDeclined string // domain list the user said "No" to (don't ask again)
 	store         *Store
@@ -122,6 +124,24 @@ func (a *App) Start() {
 			}
 		}
 	}()
+}
+
+// TrayStatus: one line for the tray icon's tooltip.
+func (a *App) TrayStatus() string {
+	cfg := a.store.Get()
+	if !a.Connected() {
+		return "OntuTunnel · not connected"
+	}
+	live, total := 0, 0
+	for _, s := range cfg.Services {
+		if s.Enabled {
+			total++
+			if a.statusOf(s.ID).Live.State == "ok" {
+				live++
+			}
+		}
+	}
+	return fmt.Sprintf("OntuTunnel · %s · %d/%d sites live", cfg.Mode.Title(), live, total)
 }
 
 func (a *App) Ready() bool {

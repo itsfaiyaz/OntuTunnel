@@ -26,6 +26,17 @@ func (a *App) Handler() http.Handler {
 	mux.Handle("/", http.FileServer(http.FS(sub)))
 	mux.HandleFunc("/api/state", a.apiState)
 	mux.HandleFunc("/api/action", a.apiAction)
+	// a second start of OntuTunnel asks this one to show its window
+	mux.HandleFunc("/ui/show", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "POST only", http.StatusMethodNotAllowed)
+			return
+		}
+		if a.ShowUI != nil {
+			go a.ShowUI()
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
 	return a.auth(mux)
 }
 
