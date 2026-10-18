@@ -502,7 +502,7 @@ struct SettingsView: View {
                     .font(.caption).foregroundStyle(.secondary)
                 Toggle("My static IP: open my sites from this Mac too", isOn: Binding(
                     get: { !model.config.localHostsOff },
-                    set: { model.config.localHostsOff = !$0; model.hostsDeclined = ""; Task { await model.syncHosts() } }))
+                    set: { model.config.localHostsOff = !$0; model.hostsDeclined = nil; Task { await model.syncHosts() } }))
                 Text("Adds your sites to /etc/hosts (127.0.0.1), because many routers can't reach their own public IP from inside. Asks for your password when the list changes.")
                     .font(.caption).foregroundStyle(.secondary)
                 Text("Per service, \"Start when OntuTunnel opens\" and \"Keep alive\" are in its Edit screen.")

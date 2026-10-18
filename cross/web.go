@@ -413,7 +413,7 @@ func (a *App) apiAction(w http.ResponseWriter, r *http.Request) {
 		})
 		a.applyKeepAwake()
 		a.hostsMu.Lock()
-		a.hostsDeclined = ""
+		a.hostsDeclined, a.hostsDeclinedSet = "", false
 		a.hostsMu.Unlock()
 		go a.syncHosts()
 	default:

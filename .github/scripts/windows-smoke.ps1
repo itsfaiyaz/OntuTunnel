@@ -15,6 +15,12 @@ function Act($body) {
   Invoke-RestMethod -Method Post -Uri "$base/api/action" -Headers @{ 'X-OntuTunnel' = '1' } -ContentType 'application/json' -Body ($body | ConvertTo-Json -Depth 5 -Compress)
 }
 
+# GitHub's Windows machines keep port 80 for IIS / HTTP.SYS: free it, as a
+# user with that service would (the app says so in its message)
+foreach ($svc in 'W3SVC', 'WAS', 'IISADMIN') { Stop-Service $svc -Force -ErrorAction SilentlyContinue }
+cmd /c 'net stop http /y' 2>&1 | Out-Null
+Write-Host 'Port 80/443 users:'; netstat -ano | Select-String ':(80|443)\s.*LISTENING' | Write-Host
+
 $exe = (Resolve-Path 'dist\windows-amd64\ontutunnel.exe').Path
 $p = Start-Process $exe -PassThru
 Start-Sleep 10

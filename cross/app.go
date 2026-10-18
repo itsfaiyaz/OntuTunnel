@@ -35,31 +35,32 @@ type LogLine struct {
 // App is the whole OntuTunnel engine; the browser UI talks to it via JSON.
 type App struct {
 	// ShowUI opens the dashboard: the app window on Windows, else the browser.
-	ShowUI        func()
-	outside       OutsideCheck // static IP: reachable from the internet?
-	update        UpdateInfo   // newer release on GitHub, if any
-	hostsMu       sync.Mutex
-	hostsDeclined string // domain list the user said "No" to (don't ask again)
-	store         *Store
-	tunnel        *Tunnel
-	proxy         *Proxy
-	cf            *CFRunner
-	mu            sync.Mutex
-	status        map[string]*Status
-	runners       map[string]*Runner
-	blocked       map[string]bool
-	logs          []LogLine
-	steps         []Step
-	busy          bool
-	pending       bool
-	network       Network
-	ports         []ListeningPort
-	facts         *Facts
-	conn          Check
-	serverIP      string
-	wild          map[string]Check
-	syncMsg       string
-	logFile       *os.File
+	ShowUI           func()
+	outside          OutsideCheck // static IP: reachable from the internet?
+	update           UpdateInfo   // newer release on GitHub, if any
+	hostsMu          sync.Mutex
+	hostsDeclined    string // domain list the user said "No" to (don't ask again)
+	hostsDeclinedSet bool
+	store            *Store
+	tunnel           *Tunnel
+	proxy            *Proxy
+	cf               *CFRunner
+	mu               sync.Mutex
+	status           map[string]*Status
+	runners          map[string]*Runner
+	blocked          map[string]bool
+	logs             []LogLine
+	steps            []Step
+	busy             bool
+	pending          bool
+	network          Network
+	ports            []ListeningPort
+	facts            *Facts
+	conn             Check
+	serverIP         string
+	wild             map[string]Check
+	syncMsg          string
+	logFile          *os.File
 }
 
 func NewApp(store *Store) *App {

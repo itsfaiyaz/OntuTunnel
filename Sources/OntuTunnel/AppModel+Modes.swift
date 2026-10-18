@@ -418,11 +418,11 @@ extension AppModel {
         }
         let key = want.joined(separator: " ")
         let (rest, ours) = HostsFile.split(HostsFile.read())
-        guard key != ours.sorted().joined(separator: " "), key != hostsDeclined else { return }
+        guard key != ours.sorted().joined(separator: " "), hostsDeclined != key else { return }
         let content = HostsFile.build(rest: rest, domains: want)
         do {
             try await Task.detached { try HostsFile.writeAsAdmin(content) }.value
-            hostsDeclined = ""
+            hostsDeclined = nil
             log("This Mac", want.isEmpty ? "Removed OntuTunnel's entries from /etc/hosts"
                 : "Your sites now open from this Mac too (/etc/hosts: \(key) → 127.0.0.1)")
         } catch {

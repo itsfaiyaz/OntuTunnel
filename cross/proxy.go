@@ -202,6 +202,9 @@ func portError(err error) string {
 	if strings.Contains(m, "address already in use") || strings.Contains(m, "Only one usage") {
 		return "already used by another program"
 	}
+	if strings.Contains(m, "forbidden by its access permissions") {
+		return "Windows keeps this port for another service (often IIS / \"World Wide Web Publishing Service\" or another app using HTTP.SYS). Stop that service, or use My server (SSH)"
+	}
 	if strings.Contains(m, "permission denied") {
 		return "permission denied (on Linux run once: sudo setcap cap_net_bind_service=+ep $(which ontutunnel))"
 	}

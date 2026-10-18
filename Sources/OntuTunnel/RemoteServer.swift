@@ -435,7 +435,7 @@ enum RemoteServer {
         for d in \(ds); do
           sudo rm -f "/etc/nginx/conf.d/ontutunnel-$d.conf" "/etc/nginx/conf.d/localbridge-$d.conf" "/etc/ontutunnel/sites/$d.caddy"
         done
-        if ls /etc/nginx/conf.d/ontutunnel-*.conf /etc/ontutunnel/sites/*.caddy >/dev/null 2>&1; then
+        if [ -n "$(ls /etc/nginx/conf.d/ontutunnel-*.conf /etc/ontutunnel/sites/*.caddy 2>/dev/null)" ]; then
           echo "OTHERS-REMAIN"
           if systemctl is-active --quiet nginx; then sudo nginx -t 2>/dev/null && sudo systemctl reload nginx; fi
           if systemctl is-active --quiet ontutunnel-caddy; then sudo systemctl restart ontutunnel-caddy; fi

@@ -48,7 +48,8 @@ final class AppModel: ObservableObject {
     @Published var hostsVersion = 0
     /// A newer release on GitHub, if any.
     @Published var update: UpdateInfo?
-    var hostsDeclined = ""
+    /// Domain list the user cancelled the password for (nil = none).
+    var hostsDeclined: String?
 
     init() {
         config = ConfigFile.load()

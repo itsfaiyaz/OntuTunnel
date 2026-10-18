@@ -227,16 +227,16 @@ func (a *App) syncHosts() {
 	for _, line := range handAdded(want) {
 		a.Log("This computer", "The hosts file has a line added by hand that wins over OntuTunnel's: \""+line+"\" — remove it", true)
 	}
-	if key == strings.Join(managedHosts(), " ") || key == a.hostsDeclined {
+	if key == strings.Join(managedHosts(), " ") || (a.hostsDeclinedSet && key == a.hostsDeclined) {
 		return
 	}
 	rest, _ := splitHosts(readHosts())
 	if err := writeHostsAsAdmin(buildHosts(rest, want)); err != nil {
-		a.hostsDeclined = key
+		a.hostsDeclined, a.hostsDeclinedSet = key, true
 		a.Log("This computer", "Couldn't update the hosts file: "+err.Error(), true)
 		return
 	}
-	a.hostsDeclined = ""
+	a.hostsDeclined, a.hostsDeclinedSet = "", false
 	if len(want) == 0 {
 		a.Log("This computer", "Removed OntuTunnel's entries from the hosts file", false)
 	} else {
