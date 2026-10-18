@@ -40,6 +40,9 @@ on **your own domain** with a real HTTPS lock.
 - 🧭 **Sees what's running**: lists the ports open on your computer. Click **Publish** to put one online.
 - 🟢 **Health at a glance**: for every site it checks the app, DNS and HTTPS, from the internet's side.
 - 📶 **Survives network changes**: switch Wi-Fi, use a hotspot or get a new IP, and it reconnects in seconds.
+- 🔑 **Easy SSH keys**: see the keys on your computer, or create one with a user name; step-by-step for Google Cloud and other servers.
+- 📝 **Hosts file editor**: see, add, change and delete entries from the app (Mac, Windows, Linux).
+- ✅ **First-time HTTPS checklist** for *My static IP*: ports, firewall, DNS, router and a test from the internet.
 - ☕ **Keep awake** (optional): stops the computer from sleeping while your sites are online.
 - 🧭 **Menu bar on Mac**: see every site's status and connect, open sites or start their apps without opening the window.
 - 🖥️ **Desktop apps**: a native Mac app (menu bar) and a Windows app (tray icon next to the clock). The same dashboard also opens in any browser at `http://localhost:7777`. Light, dark or system theme.

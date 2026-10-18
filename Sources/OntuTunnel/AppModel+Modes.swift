@@ -48,6 +48,7 @@ extension AppModel {
         config.mode = mode
         log("Connection", "Switched to \(mode.title)")
         startMode()
+        if mode != .staticIP { Task { await syncHosts() } }   // removes OntuTunnel's hosts entries
     }
 
     func startMode() {
@@ -58,7 +59,9 @@ extension AppModel {
                 // make the server match the current settings (fixes drift)
                 Task { await sync() }
             }
-        case .staticIP: startStatic()
+        case .staticIP:
+            startStatic()
+            Task { await syncHosts() }
         case .cloudflare: if isReady { startCloudflare() }
         }
     }
@@ -75,6 +78,7 @@ extension AppModel {
         case .relay: await sync()
         case .staticIP:
             syncProxyRoutes()
+            await syncHosts()
             await ensureStaticCertificate()
         case .cloudflare: await syncCloudflare()
         }
@@ -397,5 +401,47 @@ extension AppModel {
     static func wildcardRecordName(_ base: String) -> String {
         let label = DomainLabel.of(base)
         return label == "@" ? "*" : "*.\(label)"
+    }
+}
+
+// MARK: - Hosts file
+
+extension AppModel {
+    /// "My static IP": keep OntuTunnel's block in /etc/hosts equal to the
+    /// enabled sites (empty in other modes). Asks for the password only when
+    /// something changes, and not again for the same list after a cancel.
+    func syncHosts() async {
+        var want: [String] = []
+        if config.mode == .staticIP && !config.localHostsOff {
+            want = config.services.filter { $0.enabled && HostsFile.isDomain($0.normalizedDomain) }
+                .map(\.normalizedDomain).sorted()
+        }
+        let key = want.joined(separator: " ")
+        let (rest, ours) = HostsFile.split(HostsFile.read())
+        guard key != ours.sorted().joined(separator: " "), key != hostsDeclined else { return }
+        let content = HostsFile.build(rest: rest, domains: want)
+        do {
+            try await Task.detached { try HostsFile.writeAsAdmin(content) }.value
+            hostsDeclined = ""
+            log("This Mac", want.isEmpty ? "Removed OntuTunnel's entries from /etc/hosts"
+                : "Your sites now open from this Mac too (/etc/hosts: \(key) → 127.0.0.1)")
+        } catch {
+            hostsDeclined = key
+            log("This Mac", "Couldn't update /etc/hosts: \(error.localizedDescription)", error: true)
+        }
+        hostsVersion += 1
+    }
+
+    /// One change on the Hosts page. Returns an error message, or nil.
+    func editHosts(_ edit: HostsFile.Edit, ip: String = "", names: String = "") async -> String? {
+        do {
+            let content = try HostsFile.applying(edit, ip: ip, names: names)
+            try await Task.detached { try HostsFile.writeAsAdmin(content) }.value
+            log("Hosts", "Saved /etc/hosts")
+            hostsVersion += 1
+            return nil
+        } catch {
+            return error.localizedDescription
+        }
     }
 }

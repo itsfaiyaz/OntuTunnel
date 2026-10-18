@@ -5,6 +5,7 @@ enum Page: String, CaseIterable, Identifiable {
     case dashboard = "Dashboard"
     case server = "Connection"
     case domains = "Domains"
+    case hosts = "Hosts file"
     case logs = "Logs"
     case settings = "Settings"
     case guide = "Guide"
@@ -15,6 +16,7 @@ enum Page: String, CaseIterable, Identifiable {
         case .dashboard: return "square.grid.2x2"
         case .server: return "network"
         case .domains: return "globe"
+        case .hosts: return "list.bullet.rectangle"
         case .logs: return "text.alignleft"
         case .settings: return "gearshape"
         case .guide: return "book"
@@ -39,6 +41,7 @@ struct ContentView: View {
                 case .dashboard: DashboardView(goToServer: { page = .server })
                 case .server: ConnectionView()
                 case .domains: DomainsView()
+                case .hosts: HostsView()
                 case .logs: LogsView()
                 case .settings: SettingsView()
                 case .guide: GuideView()
@@ -494,6 +497,11 @@ struct SettingsView: View {
                 Toggle("Keep this Mac awake while OntuTunnel is running", isOn: Binding(
                     get: { model.config.keepAwake }, set: { model.config.keepAwake = $0; model.applyKeepAwake() }))
                 Text("Your sites stay online when you leave the Mac. The screen can still turn off. Closing the lid still sleeps the Mac, unless it's plugged in with an external display.")
+                    .font(.caption).foregroundStyle(.secondary)
+                Toggle("My static IP: open my sites from this Mac too", isOn: Binding(
+                    get: { !model.config.localHostsOff },
+                    set: { model.config.localHostsOff = !$0; model.hostsDeclined = ""; Task { await model.syncHosts() } }))
+                Text("Adds your sites to /etc/hosts (127.0.0.1), because many routers can't reach their own public IP from inside. Asks for your password when the list changes.")
                     .font(.caption).foregroundStyle(.secondary)
                 Text("Per service, \"Start when OntuTunnel opens\" and \"Keep alive\" are in its Edit screen.")
                     .font(.caption).foregroundStyle(.secondary)
@@ -1108,5 +1116,118 @@ struct SSHKeyCard: View {
     private func create() {
         createError = model.createKey(user: newUser) ?? ""
         if createError.isEmpty { newUser = "" }
+    }
+}
+
+// MARK: - Hosts file page
+
+struct HostsView: View {
+    @EnvironmentObject var model: AppModel
+    @State private var entries: [HostsFile.Entry] = []
+    @State private var newIP = "127.0.0.1"
+    @State private var newNames = ""
+    @State private var editing: HostsFile.Entry?
+    @State private var editIP = ""
+    @State private var editNames = ""
+    @State private var message = ""
+    @State private var saving = false
+    @State private var confirmDelete: HostsFile.Entry?
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Hosts file").font(.largeTitle.bold())
+                    Text("Which IP a name opens on this Mac only. Saving asks for your password once.")
+                        .foregroundStyle(.secondary)
+                }
+                Card(title: "Add an entry", icon: "plus.circle") {
+                    HStack(alignment: .bottom, spacing: 10) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("IP").font(.caption).foregroundStyle(.secondary)
+                            TextField("127.0.0.1", text: $newIP).textFieldStyle(.roundedBorder).frame(width: 170)
+                        }
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Domain(s)").font(.caption).foregroundStyle(.secondary)
+                            TextField("meet.example.com", text: $newNames).textFieldStyle(.roundedBorder)
+                        }
+                        Button("Add") { save(.add, ip: newIP, names: newNames) { newNames = "" } }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(saving || newNames.trimmingCharacters(in: .whitespaces).isEmpty)
+                    }
+                    HStack(spacing: 8) {
+                        Text("Quick:").font(.caption).foregroundStyle(.secondary)
+                        Button("This Mac (127.0.0.1)") { newIP = "127.0.0.1" }.controlSize(.small)
+                        if !model.network.localIPv4.isEmpty {
+                            Button("This Mac on Wi-Fi (\(model.network.localIPv4))") { newIP = model.network.localIPv4 }.controlSize(.small)
+                        }
+                    }
+                }
+                if !message.isEmpty {
+                    Label(message, systemImage: "exclamationmark.triangle").foregroundStyle(.red)
+                }
+                Card(title: "Entries", icon: "list.bullet") {
+                    if entries.isEmpty {
+                        Text("No entries.").foregroundStyle(.secondary)
+                    }
+                    ForEach(entries) { e in
+                        HStack(spacing: 10) {
+                            if editing == e {
+                                TextField("IP", text: $editIP).textFieldStyle(.roundedBorder).frame(width: 150)
+                                TextField("Domain(s)", text: $editNames).textFieldStyle(.roundedBorder)
+                                Button("Save") { save(.update(e), ip: editIP, names: editNames) { editing = nil } }
+                                    .buttonStyle(.borderedProminent).disabled(saving)
+                                Button("Cancel") { editing = nil }
+                            } else {
+                                Text(e.ip).font(.system(.body, design: .monospaced)).frame(width: 150, alignment: .leading)
+                                Text(e.names).font(.system(.body, design: .monospaced)).lineLimit(1).truncationMode(.middle)
+                                Spacer(minLength: 8)
+                                tag(e.source)
+                                if e.source == .you {
+                                    Button("Edit") { editing = e; editIP = e.ip; editNames = e.names }.disabled(saving)
+                                    Button(role: .destructive) { confirmDelete = e } label: { Image(systemName: "trash") }
+                                        .disabled(saving)
+                                }
+                            }
+                        }
+                        .padding(.vertical, 4)
+                        Divider()
+                    }
+                }
+                Text("File: /etc/hosts. In My static IP mode OntuTunnel keeps its own entries up to date by itself (Settings to turn off).")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            .padding(24)
+        }
+        .onAppear(perform: reload)
+        .onChange(of: model.hostsVersion) { reload() }
+        .confirmationDialog("Delete \(confirmDelete?.names ?? "")?", isPresented: Binding(
+            get: { confirmDelete != nil }, set: { if !$0 { confirmDelete = nil } })) {
+            Button("Delete", role: .destructive) {
+                if let e = confirmDelete { save(.delete(e)) {} }
+            }
+        }
+    }
+
+    private func tag(_ s: HostsFile.Entry.Source) -> some View {
+        let (text, color): (String, Color) = switch s {
+        case .you: ("yours", .blue)
+        case .ontutunnel: ("OntuTunnel", .green)
+        case .system: ("system", .secondary)
+        }
+        return Text(text).font(.caption.weight(.semibold)).padding(.horizontal, 8).padding(.vertical, 3)
+            .background(color.opacity(0.15), in: Capsule()).foregroundStyle(color)
+    }
+
+    private func reload() { entries = HostsFile.entries() }
+
+    private func save(_ edit: HostsFile.Edit, ip: String = "", names: String = "", done: @escaping () -> Void) {
+        saving = true
+        message = ""
+        Task {
+            if let err = await model.editHosts(edit, ip: ip, names: names) { message = err } else { done() }
+            saving = false
+            reload()
+        }
     }
 }

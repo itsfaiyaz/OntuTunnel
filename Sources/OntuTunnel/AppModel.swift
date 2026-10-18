@@ -44,6 +44,9 @@ final class AppModel: ObservableObject {
     @Published var wildcardStatus: [String: Check] = [:]
     let web = WebDashboard()
     @Published var webState: WebDashboard.State = .stopped
+    /// Bumped after /etc/hosts changes so the Hosts page re-reads it.
+    @Published var hostsVersion = 0
+    var hostsDeclined = ""
 
     init() {
         config = ConfigFile.load()

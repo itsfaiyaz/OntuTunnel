@@ -187,6 +187,8 @@ struct AppConfig: Codable {
     var keepAwake: Bool = false
     /// "system", "light" or "dark".
     var appearance: String = "system"
+    /// "My static IP" adds the sites to /etc/hosts (127.0.0.1) unless off.
+    var localHostsOff: Bool = false
     /// Ports hidden from "Running on this Mac" (databases, caches, …).
     var hiddenPorts: [Int] = []
     /// Wildcard bases, e.g. "dev.example.com": DNS has *.dev.example.com → this
@@ -210,6 +212,7 @@ struct AppConfig: Codable {
         autoConnect = try c.decodeIfPresent(Bool.self, forKey: .autoConnect) ?? true
         keepAwake = try c.decodeIfPresent(Bool.self, forKey: .keepAwake) ?? false
         appearance = try c.decodeIfPresent(String.self, forKey: .appearance) ?? "system"
+        localHostsOff = try c.decodeIfPresent(Bool.self, forKey: .localHostsOff) ?? false
         hiddenPorts = try c.decodeIfPresent([Int].self, forKey: .hiddenPorts) ?? []
         wildcardBases = try c.decodeIfPresent([String].self, forKey: .wildcardBases) ?? []
         published = try c.decodeIfPresent([String].self, forKey: .published)
