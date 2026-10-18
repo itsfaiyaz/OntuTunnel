@@ -38,7 +38,15 @@ func openBrowser(url string) {
 func main() {
 	noBrowser := flag.Bool("no-browser", false, "don't open the dashboard in the browser")
 	showVersion := flag.Bool("version", false, "print the version")
+	hostsSet := flag.Bool("hosts-set", false, "admin helper: set OntuTunnel's hosts-file block to the given domains")
 	flag.Parse()
+	if *hostsSet {
+		if err := writeHosts(flag.Args()); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
 	if *showVersion {
 		fmt.Println("OntuTunnel", Version)
 		return

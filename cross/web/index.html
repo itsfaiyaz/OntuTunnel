@@ -199,9 +199,11 @@ function settings(){const c=S.config;return `<div class="page">${head('Settings'
   <label class="chk"><input type="checkbox" id="g_auto" ${c.autoConnect?'checked':''}> Connect automatically when OntuTunnel starts</label>
   <label class="chk"><input type="checkbox" id="g_awake" ${c.keepAwake?'checked':''}> Keep this computer awake while OntuTunnel is running</label>
   <p class="muted" style="margin:-6px 0 0 26px;font-size:12.5px">Your sites stay online when you leave the computer. The screen can still turn off. Closing a laptop lid usually still puts it to sleep.</p>
+  <label class="chk"><input type="checkbox" id="g_hosts" ${c.localHostsOff?'':'checked'}> My static IP: open my sites from this computer too</label>
+  <p class="muted" style="margin:-6px 0 0 26px;font-size:12.5px">Adds your sites to this computer's hosts file (127.0.0.1), because many routers can't reach their own public IP from inside. Asks for admin permission when the list changes. Other devices on your Wi-Fi still use the internet address.</p>
   <label class="chk"><input type="checkbox" id="g_lan" ${c.web.allowLAN?'checked':''}> Allow other devices on my network to open this dashboard (needs the access key; restart to apply)</label>
   ${c.web.allowLAN?`<div class="mono" style="word-break:break-all">http://${esc(S.network.localIPv4)}:${c.web.port}/?key=${esc(c.web.key)}</div>`:''}
-  <div><button class="primary" onclick="act('settings',{autoConnect:$('#g_auto').checked,keepAwake:$('#g_awake').checked,allowLAN:$('#g_lan').checked})">Save</button></div>
+  <div><button class="primary" onclick="act('settings',{autoConnect:$('#g_auto').checked,keepAwake:$('#g_awake').checked,localHosts:$('#g_hosts').checked,allowLAN:$('#g_lan').checked})">Save</button></div>
   <p class="muted" style="margin:0;font-size:12.5px">Start with your computer: Windows — the installer can add OntuTunnel to Startup. Linux — <code>systemctl --user enable --now ontutunnel</code>.</p></section></div>`}
 
 function guide(){return `<div class="page">${head('Guide','Pick ONE way to connect on the Connection page.')}<section class="panel pad" style="display:grid;gap:10px">

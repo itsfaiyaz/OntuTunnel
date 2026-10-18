@@ -34,26 +34,28 @@ type LogLine struct {
 
 // App is the whole OntuTunnel engine; the browser UI talks to it via JSON.
 type App struct {
-	store    *Store
-	tunnel   *Tunnel
-	proxy    *Proxy
-	cf       *CFRunner
-	mu       sync.Mutex
-	status   map[string]*Status
-	runners  map[string]*Runner
-	blocked  map[string]bool
-	logs     []LogLine
-	steps    []Step
-	busy     bool
-	pending  bool
-	network  Network
-	ports    []ListeningPort
-	facts    *Facts
-	conn     Check
-	serverIP string
-	wild     map[string]Check
-	syncMsg  string
-	logFile  *os.File
+	hostsMu       sync.Mutex
+	hostsDeclined string // domain list the user said "No" to (don't ask again)
+	store         *Store
+	tunnel        *Tunnel
+	proxy         *Proxy
+	cf            *CFRunner
+	mu            sync.Mutex
+	status        map[string]*Status
+	runners       map[string]*Runner
+	blocked       map[string]bool
+	logs          []LogLine
+	steps         []Step
+	busy          bool
+	pending       bool
+	network       Network
+	ports         []ListeningPort
+	facts         *Facts
+	conn          Check
+	serverIP      string
+	wild          map[string]Check
+	syncMsg       string
+	logFile       *os.File
 }
 
 func NewApp(store *Store) *App {
@@ -181,6 +183,7 @@ func (a *App) SetMode(m Mode) {
 	a.store.Update(func(c *Config) { c.Mode = m })
 	a.Log("Connection", "Switched to "+m.Title(), false)
 	a.StartMode()
+	go a.syncHosts() // removes the hosts entries when leaving static IP mode
 }
 
 func (a *App) StartMode() {
@@ -194,6 +197,7 @@ func (a *App) StartMode() {
 	case ModeStaticIP:
 		a.proxy.SetRoutes(cfg.Services)
 		a.proxy.StartStatic(cfg.StaticIP)
+		go a.syncHosts()
 	case ModeCloudflare:
 		if a.Ready() {
 			a.startCloudflare()
@@ -208,6 +212,7 @@ func (a *App) SyncCurrent() {
 		a.SyncRelay()
 	case ModeStaticIP:
 		a.proxy.SetRoutes(cfg.Services)
+		a.syncHosts()
 	case ModeCloudflare:
 		a.SyncCloudflare()
 	}
@@ -884,8 +889,15 @@ func (a *App) refreshOnline() {
 			live := unknown()
 			if a.Ready() {
 				live = LiveCheck(d)
-				if cfg.Mode == ModeStaticIP && live.State == "failed" {
-					live = warn("Can't test from inside your home network — open it on your phone (mobile data)")
+				if cfg.Mode == ModeStaticIP && live.State != "ok" {
+					// Home routers often can't reach their own public IP from
+					// inside; test this computer directly instead.
+					switch here := liveCheckAt(d, "127.0.0.1"); {
+					case here.State == "ok":
+						live = warn("Works on this computer · from outside, check on a phone with mobile data")
+					case strings.Contains(here.Text, "certificate"):
+						live = warn("HTTPS certificate not ready · router must forward ports 80 and 443 to this computer")
+					}
 				}
 			}
 			a.updateStatus(s.ID, func(st *Status) {

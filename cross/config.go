@@ -81,16 +81,18 @@ type Service struct {
 func (s Service) NormalizedDomain() string { return strings.ToLower(strings.TrimSpace(s.Domain)) }
 
 type Config struct {
-	Mode          Mode             `json:"mode"`
-	Server        ServerConfig     `json:"server"`
-	ServerMode    string           `json:"serverMode,omitempty"` // "caddy" | "nginx" once set up
-	StaticIP      StaticIPConfig   `json:"staticIP"`
-	Cloudflare    CloudflareConfig `json:"cloudflare"`
-	Services      []Service        `json:"services"`
-	AutoConnect   bool             `json:"autoConnect"`
-	KeepAwake     bool             `json:"keepAwake"` // stop idle sleep while running
-	HiddenPorts   []int            `json:"hiddenPorts"`
-	WildcardBases []string         `json:"wildcardBases"`
+	Mode        Mode             `json:"mode"`
+	Server      ServerConfig     `json:"server"`
+	ServerMode  string           `json:"serverMode,omitempty"` // "caddy" | "nginx" once set up
+	StaticIP    StaticIPConfig   `json:"staticIP"`
+	Cloudflare  CloudflareConfig `json:"cloudflare"`
+	Services    []Service        `json:"services"`
+	AutoConnect bool             `json:"autoConnect"`
+	KeepAwake   bool             `json:"keepAwake"` // stop idle sleep while running
+	// Static IP mode adds the sites to this computer's hosts file unless off.
+	LocalHostsOff bool     `json:"localHostsOff"`
+	HiddenPorts   []int    `json:"hiddenPorts"`
+	WildcardBases []string `json:"wildcardBases"`
 	// Domains this installation has published on the server — cleanup only
 	// ever removes these, never files written by another computer.
 	Published []string  `json:"published"`

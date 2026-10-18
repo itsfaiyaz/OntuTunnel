@@ -275,12 +275,17 @@ func (a *App) apiAction(w http.ResponseWriter, r *http.Request) {
 		a.store.Update(func(c *Config) {
 			c.AutoConnect = boolean("autoConnect")
 			c.KeepAwake = boolean("keepAwake")
+			c.LocalHostsOff = !boolean("localHosts")
 			if c.Web.AllowLAN != boolean("allowLAN") {
 				c.Web.AllowLAN = boolean("allowLAN")
 				a.Log("Settings", "Restart OntuTunnel to apply the browser access change.", false)
 			}
 		})
 		a.applyKeepAwake()
+		a.hostsMu.Lock()
+		a.hostsDeclined = ""
+		a.hostsMu.Unlock()
+		go a.syncHosts()
 	default:
 		reply(fmt.Errorf("unknown action"))
 		return

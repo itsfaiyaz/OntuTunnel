@@ -49,32 +49,7 @@ func GetNetwork() Network {
 	return n
 }
 
-// ---------- DNS (public resolvers, not the local cache) ----------
-
-func resolverFor(server string) *net.Resolver {
-	return &net.Resolver{PreferGo: true, Dial: func(ctx context.Context, _, _ string) (net.Conn, error) {
-		d := net.Dialer{Timeout: 3 * time.Second}
-		return d.DialContext(ctx, "udp", server)
-	}}
-}
-
-// LookupA asks Google then Cloudflare; the first that knows the name wins.
-func LookupA(domain string) []string {
-	for _, srv := range []string{"8.8.8.8:53", "1.1.1.1:53"} {
-		ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
-		ips, err := resolverFor(srv).LookupIP(ctx, "ip4", domain)
-		cancel()
-		if err == nil && len(ips) > 0 {
-			var out []string
-			for _, ip := range ips {
-				out = append(out, ip.String())
-			}
-			sort.Strings(out)
-			return out
-		}
-	}
-	return nil
-}
+// ---------- DNS: see dns.go ----------
 
 // ResolveHost: IP as is, else its A record.
 func ResolveHost(host string) string {
@@ -117,7 +92,11 @@ func LiveCheck(domain string) Check {
 	if len(ips) == 0 {
 		return fail("Domain has no A record in public DNS")
 	}
-	ip := ips[0]
+	return liveCheckAt(domain, ips[0])
+}
+
+// liveCheckAt: HTTPS GET for domain, sent to this IP.
+func liveCheckAt(domain, ip string) Check {
 	tr := &http.Transport{
 		DialContext: func(ctx context.Context, network, _ string) (net.Conn, error) {
 			d := net.Dialer{Timeout: 8 * time.Second}
