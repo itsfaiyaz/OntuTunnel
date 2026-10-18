@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -23,7 +24,13 @@ const (
 
 var validHost = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$`)
 
+// hostsPathOverride is used by tests.
+var hostsPathOverride string
+
 func hostsPath() string {
+	if hostsPathOverride != "" {
+		return hostsPathOverride
+	}
 	if runtime.GOOS == "windows" {
 		root := os.Getenv("SystemRoot")
 		if root == "" {
@@ -101,19 +108,35 @@ func managedHosts() []string {
 	return ours
 }
 
-// writeHosts replaces our block with these domains (none = remove it).
-func writeHosts(domains []string) error {
-	for _, d := range domains {
-		if !validHost.MatchString(d) {
-			return fmt.Errorf("not a valid domain: %q", d)
+// validateHosts accepts only comments, blank lines and "IP name…" lines,
+// so the admin helper never writes something that isn't a hosts file.
+func validateHosts(content string) error {
+	if len(content) > 1<<20 {
+		return fmt.Errorf("hosts file too big")
+	}
+	for n, line := range strings.Split(strings.ReplaceAll(content, "\r\n", "\n"), "\n") {
+		t := strings.TrimSpace(strings.SplitN(line, "#", 2)[0])
+		if t == "" {
+			continue
+		}
+		f := strings.Fields(t)
+		if len(f) < 2 || net.ParseIP(f[0]) == nil {
+			return fmt.Errorf("line %d is not \"IP name\": %q", n+1, line)
 		}
 	}
-	data, err := os.ReadFile(hostsPath())
-	if err != nil {
+	return nil
+}
+
+// writeHostsContent writes the whole file (needs admin rights) and clears
+// the DNS cache.
+func writeHostsContent(content string) error {
+	if err := validateHosts(content); err != nil {
 		return err
 	}
-	rest, _ := splitHosts(string(data))
-	if err := os.WriteFile(hostsPath(), []byte(buildHosts(rest, domains)), 0o644); err != nil {
+	if runtime.GOOS == "windows" {
+		content = strings.ReplaceAll(strings.ReplaceAll(content, "\r\n", "\n"), "\n", "\r\n")
+	}
+	if err := os.WriteFile(hostsPath(), []byte(content), 0o644); err != nil {
 		return err
 	}
 	flushDNS()
@@ -134,34 +157,38 @@ func flushDNS() {
 
 // writeHostsAsAdmin: the hosts file needs admin rights, so OntuTunnel asks
 // for them (Windows: the usual "Yes/No" prompt) and runs itself with
-// -hosts-set, which only rewrites its own block.
-func writeHostsAsAdmin(domains []string) error {
-	if err := writeHosts(domains); err == nil {
+// -hosts-write <file>, which checks the file and copies it into place.
+func writeHostsAsAdmin(content string) error {
+	if err := validateHosts(content); err != nil {
+		return err
+	}
+	if err := writeHostsContent(content); err == nil {
 		return nil
 	}
+	tmp := filepath.Join(DataDir(), "hosts.new")
+	if err := os.WriteFile(tmp, []byte(content), 0o600); err != nil {
+		return err
+	}
+	defer os.Remove(tmp)
 	self, err := os.Executable()
 	if err != nil {
 		return err
 	}
-	args := append([]string{"-hosts-set"}, domains...)
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "windows":
-		quoted := make([]string, len(args))
-		for i, a := range args {
-			quoted[i] = "'" + a + "'"
-		}
-		ps := fmt.Sprintf("$p = Start-Process -FilePath '%s' -ArgumentList %s -Verb RunAs -WindowStyle Hidden -Wait -PassThru; exit $p.ExitCode",
-			strings.ReplaceAll(self, "'", "''"), strings.Join(quoted, ","))
+		q := func(s string) string { return "'" + strings.ReplaceAll(s, "'", "''") + "'" }
+		ps := fmt.Sprintf("$p = Start-Process -FilePath %s -ArgumentList '-hosts-write',%s -Verb RunAs -WindowStyle Hidden -Wait -PassThru; exit $p.ExitCode",
+			q(self), q(`"`+tmp+`"`))
 		cmd = exec.Command("powershell", "-NoProfile", "-Command", ps)
 	case "darwin":
-		line := "'" + strings.ReplaceAll(self, "'", `'\''`) + "' " + strings.Join(args, " ")
-		cmd = exec.Command("osascript", "-e", fmt.Sprintf("do shell script %q with administrator privileges", line))
+		sq := func(s string) string { return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'" }
+		cmd = exec.Command("osascript", "-e", fmt.Sprintf("do shell script %q with administrator privileges", sq(self)+" -hosts-write "+sq(tmp)))
 	default:
 		if _, err := exec.LookPath("pkexec"); err != nil {
-			return fmt.Errorf("needs admin rights: run  sudo %s %s", self, strings.Join(args, " "))
+			return fmt.Errorf("needs admin rights: run  sudo %s -hosts-write %s", self, tmp)
 		}
-		cmd = exec.Command("pkexec", append([]string{self}, args...)...)
+		cmd = exec.Command("pkexec", self, "-hosts-write", tmp)
 	}
 	hideWindow(cmd)
 	if out, err := cmd.CombinedOutput(); err != nil {
@@ -172,6 +199,12 @@ func writeHostsAsAdmin(domains []string) error {
 		return fmt.Errorf("%s", msg)
 	}
 	return nil
+}
+
+// readHosts: the hosts file as text ("" if it can't be read).
+func readHosts() string {
+	b, _ := os.ReadFile(hostsPath())
+	return strings.ReplaceAll(string(b), "\r\n", "\n")
 }
 
 // syncHosts keeps the block equal to the enabled sites in static IP mode
@@ -197,7 +230,8 @@ func (a *App) syncHosts() {
 	if key == strings.Join(managedHosts(), " ") || key == a.hostsDeclined {
 		return
 	}
-	if err := writeHostsAsAdmin(want); err != nil {
+	rest, _ := splitHosts(readHosts())
+	if err := writeHostsAsAdmin(buildHosts(rest, want)); err != nil {
 		a.hostsDeclined = key
 		a.Log("This computer", "Couldn't update the hosts file: "+err.Error(), true)
 		return

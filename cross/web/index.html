@@ -64,7 +64,7 @@ setTheme(getTheme());
 <body>
 <nav id="nav">
   <div class="brand"><svg viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="#0a1b3c"/><path d="M6 24a10 10 0 0 1 20 0" fill="none" stroke="#3e8bff" stroke-opacity=".45" stroke-width="2.5" stroke-linecap="round"/><path d="M10 13h12m-3-3 3 3-3 3M22 19H10m3-3-3 3 3 3" fill="none" stroke="#3e8bff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>OntuTunnel</div>
-  <a href="#dashboard">Dashboard</a><a href="#connection">Connection</a><a href="#domains">Domains</a><a href="#logs">Logs</a><a href="#settings">Settings</a><a href="#guide">Guide</a>
+  <a href="#dashboard">Dashboard</a><a href="#connection">Connection</a><a href="#domains">Domains</a><a href="#hosts">Hosts file</a><a href="#logs">Logs</a><a href="#settings">Settings</a><a href="#guide">Guide</a>
   <div class="foot"><span id="navState" class="pill unknown">…</span><div id="ver" style="margin-top:6px"></div></div>
 </nav>
 <main id="main"></main>
@@ -86,7 +86,7 @@ function render(){if(!S)return;
   const cs=connState();$('#navState').className='pill '+cs;$('#navState').textContent=S.modeTitle+(S.connected?' · on':S.ready?' · off':' · not set up');$('#ver').textContent='v'+S.version;
   const keep=document.activeElement&&document.activeElement.id?document.activeElement.id:null;
   if(keep&&['INPUT','SELECT'].includes(document.activeElement.tagName)&&page!='dashboard')return; // don't clobber typing
-  $('#main').innerHTML=({dashboard,connection,domains,logs,settings,guide}[page]||dashboard)();
+  $('#main').innerHTML=({dashboard,connection,domains,hosts,logs,settings,guide}[page]||dashboard)();
   if(keep&&document.getElementById(keep)){const el=document.getElementById(keep);el.focus();if(el.setSelectionRange&&el.value!=null)el.setSelectionRange(el.value.length,el.value.length)}
 }
 const head=(t,s,right='')=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><div style="display:flex;gap:10px;align-items:center"><button class="ghost burger" onclick="$('#nav').classList.add('open')">☰</button><div><h1>${t}</h1>${s?`<p class="sub">${s}</p>`:''}</div></div><div style="display:flex;gap:8px;flex-wrap:wrap">${right}</div></div>`;
@@ -160,15 +160,63 @@ function connection(){const m=viewMode||S.config.mode,act_=S.config.mode,modes=[
 function relay(){const s=S.config.server,f=S.facts,c=S.conn;
   return `<div class="page" style="max-width:none"><section class="panel pad" style="display:grid;gap:12px"><h2 style="margin:0;font-size:16px">1 · Connect</h2>
    <div class="grid2"><label class="f">Server IP / host<input id="s_host" value="${esc(s.host)}" placeholder="203.0.113.10"></label><label class="f">SSH user<input id="s_user" value="${esc(s.user)}" placeholder="ubuntu"></label>
-   <label class="f">SSH port<input id="s_port" value="${s.port||22}"></label><label class="f">SSH key<select id="s_key">${[...new Set([...(S.sshKeys||[]),s.keyPath].filter(Boolean))].map(k=>`<option ${k==s.keyPath?'selected':''}>${esc(k)}</option>`).join('')}</select></label>
+   <label class="f">SSH port<input id="s_port" value="${s.port||22}"></label><label class="f">SSH key (choose below)<input id="s_key" value="${esc(s.keyPath)}" readonly></label>
    <label class="f">Email (optional, SSL notices)<input id="s_mail" value="${esc(s.email)}"></label></div>
-   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button onclick="saveServer().then(()=>act('testConnection'))">Save & test connection</button><button class="ghost" onclick="act('createKey')">Create new key</button>
+   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button onclick="saveServer().then(()=>act('testConnection'))">Save & test connection</button>
    ${c&&c.state!='unknown'?`<span class="pill ${c.state}" style="white-space:normal">${c.ok?'Connected':esc(c.text)}</span>`:''}</div>
-   ${S.publicKey?`<details><summary style="padding:0">Public key — add it to the server if the connection is refused</summary><div class="mono" style="word-break:break-all;margin:8px 0;padding:8px;background:var(--panel2);border-radius:8px">${esc(S.publicKey)}</div><button onclick="navigator.clipboard.writeText(${JSON.stringify(S.publicKey||'')})">Copy public key</button><p class="muted" style="font-size:12.5px">Google Cloud: VM → Edit → SSH Keys → Add item. Other servers: append it to ~/.ssh/authorized_keys of the SSH user.</p></details>`:''}</section>
+   </section>${keyCard()}
   ${f?`<section class="panel pad"><h2 style="margin:0 0 8px;font-size:16px">What's on the server</h2><div class="grid2 mono" style="font-size:12.5px"><div>System: ${esc(f.os)} · ${esc(f.arch)}</div><div>sudo: ${f.sudo?'yes':'no — needed'}</div><div>Port 80: ${esc(f.port80||'free')}</div><div>Port 443: ${esc(f.port443||'free')}</div></div></section>`:''}
   <section class="panel pad" style="display:grid;gap:12px"><h2 style="margin:0;font-size:16px">2 · Set up server</h2><p class="muted" style="margin:0">Checks the server, installs what is missing, publishes your services and starts the tunnel. Only adds its own files — nothing you already run is changed. Safe to run again.</p>
    <div><button class="primary" ${S.busy?'disabled':''} onclick="saveServer().then(()=>act('setupRelay'))">${S.ready?'Run setup again':'Set up server'}</button></div>${steps(S.steps)}</section>
   ${S.ready?`<section class="panel pad" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span class="pill ${S.tunnel.state}">Tunnel ${esc(S.tunnel.state)}</span>${S.tunnel.detail?`<span class="muted">${esc(S.tunnel.detail)}</span>`:''}<span style="flex:1"></span><button onclick="act('sync')">Sync now</button><button class="danger" onclick="if(confirm('Remove everything OntuTunnel added to the server? Your other sites are not touched.'))act('removeFromServer')">Remove from server</button></section>`:''}</div>`}
+// First-time checklist for "My static IP": what must be open before HTTPS works.
+function staticChecklist(){const ck=S.staticChecks||{},o=ck.outside||{},on=(S.services||[]).filter(s=>s.enabled),ip=S.dnsTarget||'your IP',lan=S.network.localIPv4||'this computer';
+  const item=(state,title,body)=>`<div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid var(--line)"><span class="pill ${state}" style="min-width:58px;text-align:center">${{ok:'✓ done',failed:'✗ to do',warning:'! check',checking:'…',unknown:'?','n/a':'—'}[state]||state}</span><div style="flex:1"><div style="font-weight:600">${title}</div><div class="muted" style="font-size:12.5px">${body}</div></div></div>`;
+  const dnsBad=on.filter(s=>!s.status.dns.ok),certOK=on.filter(s=>s.status.live.ok||/Works on this computer/.test(s.status.live.text||''));
+  return `<div style="margin-top:4px"><div style="font-weight:600;margin-bottom:4px">First-time checklist for HTTPS</div>
+  ${item(S.proxy.state=='listening'?'ok':'failed','1 · OntuTunnel serves ports 80 and 443',S.proxy.state=='listening'?'Running.':'Click <b>Save &amp; start</b>. '+esc(S.proxy.detail||''))}
+  ${ck.os=='windows'?item(ck.firewall=='ok'?'ok':'failed','2 · Windows Firewall lets visitors in',ck.firewall=='ok'?'Allowed.':`Not allowed yet. <button onclick="act('allowFirewall')">Allow in Windows Firewall</button> (asks for admin permission once)`):''}
+  ${item(!on.length?'unknown':dnsBad.length?'failed':'ok','3 · DNS: each domain points to '+esc(ip),!on.length?'Add a service first.':dnsBad.length?'In your DNS provider add an <b>A</b> record → <b class="mono">'+esc(ip)+'</b> for: '+dnsBad.map(s=>'<span class="mono">'+esc(s.domain)+'</span>').join(', '):'All domains point here.')}
+  ${item(o.state||'unknown','4 · Router: ports 80 and 443 reach this computer',`In the router's admin page add port forwarding: TCP <b>80</b> and <b>443</b> → <b class="mono">${esc(lan)}</b>. Give this computer a fixed LAN IP. ${o.text?'<br>Last test: '+esc(o.text):''}<br><button onclick="act('testOutside')" ${o.state=='checking'?'disabled':''}>Test from the internet</button> <span>(uses your server from My server settings)</span>`)}
+  ${item(!on.length?'unknown':certOK.length==on.length?'ok':'warning','5 · HTTPS certificates',!on.length?'Add a service first.':certOK.length==on.length?'Every site has its certificate.':'Comes by itself within a minute once 1–4 are done. Waiting for: '+on.filter(s=>!certOK.includes(s)).map(s=>'<span class="mono">'+esc(s.domain)+'</span>').join(', '))}
+  <p class="muted" style="margin:6px 0 0;font-size:12.5px">If step 4 keeps failing although the router is set up, your internet provider blocks incoming connections (common on home plans). Ask them to open ports 80 and 443, or use <b>My server (SSH)</b>, which needs none of this.</p></div>`}
+
+let keyTarget='gcp';
+function copy(t){navigator.clipboard.writeText(t)}
+function keyCard(){const s=S.config.server,keys=S.sshKeyInfos||[],k=keys.find(x=>x.path==s.keyPath),ki=keys.indexOf(k);
+  return `<section class="panel pad" style="display:grid;gap:12px"><h2 style="margin:0;font-size:16px">SSH key — how OntuTunnel logs in to the server</h2>
+  ${keys.length?`<div style="font-weight:600">Keys on this computer</div><div style="display:grid;gap:4px">${keys.map((x,i)=>{const on=x.path==s.keyPath;return `<div style="display:flex;gap:10px;align-items:center;padding:8px 10px;border-radius:9px;${on?'background:color-mix(in srgb,var(--ontu) 12%,transparent)':''}">
+     <span style="color:${on?'var(--ontu)':'var(--muted)'}">${on?'●':'○'}</span><div style="flex:1;min-width:0"><div class="mono" style="overflow:hidden;text-overflow:ellipsis">${esc(x.name)}</div><div class="muted" style="font-size:12px">${esc(x.type)}${x.cloudUser?' · user: '+esc(x.cloudUser):''}</div></div>
+     <button onclick="copy(S.sshKeyInfos[${i}].publicKey)">Copy</button>${on?'':`<button onclick="act('useKey',{path:S.sshKeyInfos[${i}].path,user:S.sshKeyInfos[${i}].cloudUser})">Use this</button>`}</div>`}).join('')}</div>`
+   :`<p class="muted" style="margin:0">This computer has no SSH key yet. Create one below.</p>`}
+  <div style="border-top:1px solid var(--line);padding-top:12px;display:grid;gap:8px"><div style="font-weight:600">Create a new key</div>
+   <p class="muted" style="margin:0;font-size:12.5px">Type the user name you want on the server. Google Cloud creates this user by itself when you add the key.</p>
+   <div style="display:flex;gap:8px;flex-wrap:wrap"><input id="k_user" placeholder="user name, e.g. faiyaz" style="max-width:260px"><button onclick="act('createKey',{user:$('#k_user').value})">Create key</button></div></div>
+  ${k?`<div style="border-top:1px solid var(--line);padding-top:12px;display:grid;gap:8px"><div style="font-weight:600">Add this key to your server</div>
+   <div class="mono" style="word-break:break-all;padding:8px;background:var(--panel2);border-radius:8px;font-size:12px">${esc(k.publicKey)}</div>
+   <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="primary" onclick="copy(S.sshKeyInfos[${ki}].publicKey)">Copy public key</button>${k.cloudUser&&s.user!=k.cloudUser?`<button onclick="act('setUser',{user:S.sshKeyInfos[${ki}].cloudUser})">Set SSH user to ${esc(k.cloudUser)}</button>`:''}</div>
+   <div class="seg" style="display:flex;gap:4px"><button class="${keyTarget=='gcp'?'primary':'ghost'}" onclick="keyTarget='gcp';render()">Google Cloud</button><button class="${keyTarget!='gcp'?'primary':'ghost'}" onclick="keyTarget='other';render()">Other server</button></div>
+   ${keyTarget=='gcp'?`<ol style="margin:0;padding-left:20px;display:grid;gap:3px"><li>Open console.cloud.google.com → Compute Engine → VM instances.</li><li>Click your VM → <b>Edit</b>.</li><li>Security and access → <b>SSH Keys</b> → <b>Add item</b>.</li><li>Paste the key (Copy public key above) → <b>Save</b> at the bottom.</li><li>SSH user here = <b>${esc(k.cloudUser||'the name at the end of the key')}</b>. Then click Save &amp; test connection.</li></ol>`
+   :(()=>{const cmd=`ssh-copy-id -i "${k.path}.pub" ${s.user||'USER'}@${s.host||'SERVER-IP'}`;window._cmd=cmd;return `<p class="muted" style="margin:0;font-size:12.5px">If you can log in to the server with a password, run this once in a terminal:</p><div style="display:flex;gap:8px;align-items:center"><code style="flex:1;overflow:auto;white-space:nowrap">${esc(cmd)}</code><button onclick="copy(window._cmd)">Copy</button></div><p class="muted" style="margin:0;font-size:12.5px">Or paste the key as a new line into ~/.ssh/authorized_keys of that user on the server.</p>`})()}</div>`:''}
+  </section>`}
+
+let hostEdit=null;
+function hosts(){const h=S.hosts||{entries:[]},es=(h.entries||[]).map((e,i)=>({...e,i})),lan=S.network.localIPv4||'';
+  const row=e=>{const editing=hostEdit===e.line&&e.source=='you';
+    if(editing)return `<tr><td><input id="h_eip" value="${esc(e.ip)}"></td><td><input id="h_enames" value="${esc(e.names)}"></td><td></td><td style="white-space:nowrap"><button class="primary" onclick="saveHost('update',${e.i})">Save</button> <button class="ghost" onclick="hostEdit=null;render()">Cancel</button></td></tr>`;
+    const tag={you:'<span class="pill unknown">yours</span>',ontutunnel:'<span class="pill ok">OntuTunnel</span>',system:'<span class="pill unknown">system</span>'}[e.source];
+    return `<tr><td class="mono">${esc(e.ip)}</td><td class="mono">${esc(e.names)}</td><td>${tag}</td><td style="white-space:nowrap">${e.source=='you'?`<button class="ghost" onclick="hostEdit=${e.line};render()">Edit</button> <button class="ghost danger" onclick="if(confirm('Delete this entry?'))saveHost('delete',${e.i})">Delete</button>`:''}</td></tr>`};
+  return `<div class="page">${head('Hosts file','Which IP a name opens on this computer only. Saving asks for admin permission once.')}
+  <section class="panel pad" style="display:grid;gap:10px"><div style="font-weight:600">Add an entry</div>
+   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end"><label class="f" style="flex:1;min-width:150px">IP<input id="h_ip" list="h_ips" placeholder="127.0.0.1"></label><datalist id="h_ips"><option value="127.0.0.1">this computer</option>${lan?`<option value="${esc(lan)}">this computer on the LAN</option>`:''}</datalist>
+   <label class="f" style="flex:2;min-width:200px">Domain(s)<input id="h_names" placeholder="meet.example.com"></label><button class="primary" onclick="saveHost('add',-1)">Add</button></div>
+   <p class="muted" style="margin:0;font-size:12.5px">127.0.0.1 = this computer · ${esc(lan||'LAN IP')} = this computer for other devices on your Wi-Fi (add it in their hosts file).</p></section>
+  <section class="panel" style="overflow:auto"><table><thead><tr><th>IP</th><th>Domain(s)</th><th>Added by</th><th></th></tr></thead><tbody>${es.map(row).join('')||'<tr><td colspan="4" class="muted">No entries.</td></tr>'}</tbody></table></section>
+  <p class="muted" style="font-size:12.5px">File: <span class="mono">${esc(h.path)}</span>. OntuTunnel's own entries (My static IP mode) are kept up to date by itself; turn that off in Settings.</p></div>`}
+async function saveHost(op,i){const e=i<0?{line:-1,raw:''}:S.hosts.entries[i];const ip=op=='add'?$('#h_ip').value:op=='update'?$('#h_eip').value:e.ip,names=op=='add'?$('#h_names').value:op=='update'?$('#h_enames').value:e.names;
+  document.activeElement&&document.activeElement.blur();
+  const r=await act('hostsEdit',{edit:{op,line:e.line,raw:e.raw||'',ip,names}});hostEdit=null;load()}
+
 async function saveServer(){return act('saveServer',{server:{host:$('#s_host').value,user:$('#s_user').value,port:parseInt($('#s_port').value,10)||22,keyPath:$('#s_key').value,email:$('#s_mail').value}})}
 
 function staticIP(){const c=S.config.staticIP;return `<div class="page" style="max-width:none"><section class="panel pad" style="display:grid;gap:12px">
@@ -178,6 +226,7 @@ function staticIP(){const c=S.config.staticIP;return `<div class="page" style="m
    <p style="margin:0">Router: forward TCP <b>80</b> and <b>443</b> to <b class="mono">${esc(S.network.localIPv4||'this computer')}</b>. Give this computer a fixed LAN IP.</p>
    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="primary" onclick="act('saveStatic',{staticIP:{ip:$('#t_ip').value.trim(),email:$('#t_mail').value.trim(),httpsEnabled:$('#t_https').checked,redirectToHTTPS:$('#t_redir').checked}}).then(()=>act('start'))">Save & start</button><button onclick="act('stop')">Stop</button>
    <span class="pill ${S.proxy.state}">${esc(S.proxy.state)}${S.proxy.detail?' · '+esc(S.proxy.detail):''}</span></div>
+   ${staticChecklist()}
    <p class="muted" style="margin:0;font-size:12.5px">DNS for each service: A → ${esc(S.dnsTarget||'your static IP')}. Linux: allow ports below 1024 once with <code>sudo setcap cap_net_bind_service=+ep $(which ontutunnel)</code>.</p></section></div>`}
 
 function cloudflare(){const c=S.config.cloudflare;return `<div class="page" style="max-width:none"><section class="panel pad" style="display:grid;gap:10px"><h2 style="margin:0;font-size:16px">Before you start (once)</h2>

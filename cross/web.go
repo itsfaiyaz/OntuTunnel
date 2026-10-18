@@ -11,6 +11,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
+	"runtime"
 	"sort"
 	"strings"
 
@@ -87,18 +89,60 @@ func publicKey(keyPath string) string {
 	return strings.TrimSpace(string(b))
 }
 
-func createKey() (string, error) {
-	home, _ := os.UserHomeDir()
-	path := filepath.Join(home, ".ssh", "ontutunnel_ed25519")
-	if _, err := os.Stat(path); err == nil {
-		return path, nil
+// SSHKeyInfo: one key pair in ~/.ssh, as shown on the Connection page.
+type SSHKeyInfo struct {
+	Path      string `json:"path"`
+	Name      string `json:"name"`
+	Type      string `json:"type"`
+	Comment   string `json:"comment"`
+	CloudUser string `json:"cloudUser"` // the user Google Cloud creates for it
+	PublicKey string `json:"publicKey"`
+}
+
+var validUser = regexp.MustCompile(`^[a-z_][a-z0-9_-]{0,31}$`)
+
+func sshKeyInfos() []SSHKeyInfo {
+	var out []SSHKeyInfo
+	for _, p := range sshKeys() {
+		line := publicKey(p)
+		f := strings.SplitN(line, " ", 3)
+		if len(f) < 2 {
+			continue
+		}
+		k := SSHKeyInfo{Path: p, Name: filepath.Base(p), Type: strings.ToUpper(strings.TrimPrefix(f[0], "ssh-")), PublicKey: line}
+		if len(f) == 3 {
+			k.Comment = f[2]
+			if u := strings.ToLower(strings.SplitN(f[2], "@", 2)[0]); validUser.MatchString(u) {
+				k.CloudUser = u
+			}
+		}
+		out = append(out, k)
 	}
-	_ = os.MkdirAll(filepath.Dir(path), 0o700)
+	return out
+}
+
+// createKey makes a new ed25519 key whose comment is the user name: Google
+// Cloud creates that user on the VM when the key is added.
+func createKey(user string) (string, error) {
+	user = strings.ToLower(strings.TrimSpace(user))
+	if !validUser.MatchString(user) {
+		return "", fmt.Errorf("use small letters, numbers, - or _ (for example: faiyaz)")
+	}
+	home, _ := os.UserHomeDir()
+	dir := filepath.Join(home, ".ssh")
+	path := filepath.Join(dir, "ontutunnel_"+user+"_ed25519")
+	for n := 2; ; n++ {
+		if _, err := os.Stat(path); err != nil {
+			break
+		}
+		path = filepath.Join(dir, fmt.Sprintf("ontutunnel_%s_%d_ed25519", user, n))
+	}
+	_ = os.MkdirAll(dir, 0o700)
 	pub, priv, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		return "", err
 	}
-	block, err := ssh.MarshalPrivateKey(priv, "ontutunnel")
+	block, err := ssh.MarshalPrivateKey(priv, user)
 	if err != nil {
 		return "", err
 	}
@@ -106,8 +150,7 @@ func createKey() (string, error) {
 		return "", err
 	}
 	sshPub, _ := ssh.NewPublicKey(pub)
-	host, _ := os.Hostname()
-	line := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(sshPub))) + " ontutunnel@" + host + "\n"
+	line := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(sshPub))) + " " + user + "\n"
 	return path, os.WriteFile(path+".pub", []byte(line), 0o644)
 }
 
@@ -162,10 +205,16 @@ func (a *App) apiState(w http.ResponseWriter, _ *http.Request) {
 	cs, cd := a.cf.State()
 	out["tunnel"] = map[string]any{"state": ts, "detail": td}
 	out["proxy"] = map[string]any{"state": ps, "detail": pd, "https": https}
+	a.mu.Lock()
+	outside := a.outside
+	a.mu.Unlock()
+	out["staticChecks"] = map[string]any{"firewall": firewallState(), "outside": outside, "os": runtime.GOOS}
 	out["cloudflared"] = map[string]any{"state": cs, "detail": cd, "installed": cfBinary() != "", "loggedIn": cfLoggedIn()}
 	out["ready"], out["connected"], out["dnsTarget"] = a.Ready(), a.Connected(), a.DNSTarget()
 	out["modeTitle"] = cfg.Mode.Title()
 	out["sshKeys"], out["publicKey"] = sshKeys(), publicKey(cfg.Server.KeyPath)
+	out["sshKeyInfos"] = sshKeyInfos()
+	out["hosts"] = map[string]any{"path": hostsPath(), "entries": hostEntries()}
 	out["version"] = Version
 	host, _ := os.Hostname()
 	out["hostname"] = host
@@ -221,11 +270,27 @@ func (a *App) apiAction(w http.ResponseWriter, r *http.Request) {
 	case "forgetHostKey":
 		a.store.Update(func(c *Config) { c.Server.HostKey = "" })
 	case "createKey":
-		p, err := createKey()
+		p, err := createKey(str("user"))
 		if err == nil {
-			a.store.Update(func(c *Config) { c.Server.KeyPath = p })
+			user := strings.ToLower(strings.TrimSpace(str("user")))
+			a.store.Update(func(c *Config) { c.Server.KeyPath, c.Server.User = p, user })
+			a.Log("Server", "New SSH key "+filepath.Base(p)+" for user "+user+" — add its public key to the server", false)
 		}
 		reply(err)
+		return
+	case "useKey":
+		a.store.Update(func(c *Config) {
+			c.Server.KeyPath = str("path")
+			if c.Server.User == "" {
+				c.Server.User = str("user")
+			}
+		})
+	case "setUser":
+		a.store.Update(func(c *Config) { c.Server.User = str("user") })
+	case "hostsEdit":
+		var e HostEdit
+		_ = json.Unmarshal(req["edit"], &e)
+		reply(a.EditHosts(e))
 		return
 	case "testConnection":
 		go a.TestConnection()
@@ -237,6 +302,11 @@ func (a *App) apiAction(w http.ResponseWriter, r *http.Request) {
 				a.Log("Server", "Remove failed: "+err.Error(), true)
 			}
 		}()
+	case "allowFirewall":
+		reply(a.AllowFirewall())
+		return
+	case "testOutside":
+		go a.TestFromOutside()
 	case "saveStatic":
 		var s StaticIPConfig
 		_ = json.Unmarshal(req["staticIP"], &s)

@@ -297,3 +297,24 @@ struct SetupStep: Identifiable {
     var state: Check = .unknown
     var detail: String = ""
 }
+
+/// One SSH key pair in ~/.ssh.
+struct SSHKeyInfo: Identifiable, Hashable {
+    let path: String        // "~/.ssh/id_ed25519" (private key)
+    let publicKey: String   // "ssh-ed25519 AAAA… comment"
+    var id: String { path }
+    var name: String { (path as NSString).lastPathComponent }
+    var type: String {
+        let t = publicKey.split(separator: " ").first.map(String.init) ?? ""
+        return t.replacingOccurrences(of: "ssh-", with: "").uppercased()
+    }
+    var comment: String {
+        let parts = publicKey.split(separator: " ", maxSplits: 2)
+        return parts.count == 3 ? String(parts[2]) : ""
+    }
+    /// The user Google Cloud creates for this key (the comment before "@").
+    var cloudUser: String {
+        let u = comment.split(separator: "@").first.map(String.init) ?? ""
+        return AppModel.validUserName(u.lowercased()) ? u.lowercased() : ""
+    }
+}

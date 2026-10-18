@@ -326,13 +326,8 @@ struct RelayView: View {
                         }
                         GridRow {
                             Text("SSH key").foregroundStyle(.secondary)
-                            HStack {
-                                Picker("", selection: $model.config.server.keyPath) {
-                                    ForEach(Array(Set(model.sshKeys + [model.config.server.keyPath])).sorted(), id: \.self) { Text($0).tag($0) }
-                                }
-                                .labelsHidden()
-                                Button("Create new key") { model.createKey() }
-                            }
+                            Text(model.config.server.keyPath).font(.system(.body, design: .monospaced))
+                                .lineLimit(1).truncationMode(.middle)
                         }
                         GridRow {
                             Text("Email (optional)").foregroundStyle(.secondary)
@@ -344,25 +339,9 @@ struct RelayView: View {
                             .disabled(!model.config.server.isComplete || model.busy)
                         checkLabel(model.connection)
                     }
-                    let pub = model.publicKey()
-                    if !pub.isEmpty {
-                        DisclosureGroup("Public key — add this to the server if the connection is refused") {
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text(pub).font(.system(.caption, design: .monospaced)).textSelection(.enabled)
-                                    .padding(8).background(.background, in: RoundedRectangle(cornerRadius: 6))
-                                HStack {
-                                    Button("Copy public key") { model.copy(pub) }
-                                    Spacer()
-                                }
-                                Text("Google Cloud: Compute Engine → VM instances → your VM → Edit → Security and access → SSH Keys → Add item → paste → Save. User name = the part at the end of the key line (or set SSH user to it).")
-                                    .font(.caption).foregroundStyle(.secondary)
-                                Text("Other servers: append it to ~/.ssh/authorized_keys of the SSH user.")
-                                    .font(.caption).foregroundStyle(.secondary)
-                            }
-                            .padding(.top, 6)
-                        }
-                    }
                 }
+
+                SSHKeyCard()
 
                 if let f = model.facts {
                     Card(title: "What's on the server", icon: "magnifyingglass") {
@@ -1015,5 +994,119 @@ struct MenuBarContent: View {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { NSApp.terminate(nil) }
         }
         .keyboardShortcut("q")
+    }
+}
+
+// MARK: - SSH key: pick one this Mac has, or create one, and add it to the server
+
+struct SSHKeyCard: View {
+    @EnvironmentObject var model: AppModel
+    @State private var newUser = ""
+    @State private var createError = ""
+    @State private var target = 0   // 0 Google Cloud, 1 other server
+
+    var body: some View {
+        let keys = model.sshKeyInfos
+        let selected = keys.first { $0.path == model.config.server.keyPath }
+        Card(title: "SSH key — how OntuTunnel logs in to the server", icon: "key.horizontal") {
+            if keys.isEmpty {
+                Label("This Mac has no SSH key yet. Create one below.", systemImage: "info.circle")
+                    .foregroundStyle(.secondary)
+            } else {
+                Text("Keys on this Mac").font(.subheadline.weight(.semibold))
+                VStack(spacing: 0) {
+                    ForEach(keys) { k in
+                        let isOn = k.path == model.config.server.keyPath
+                        HStack(spacing: 10) {
+                            Image(systemName: isOn ? "checkmark.circle.fill" : "circle")
+                                .foregroundStyle(isOn ? Color.accentColor : .secondary)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(k.name).font(.system(.body, design: .monospaced)).lineLimit(1)
+                                Text([k.type, k.cloudUser.isEmpty ? "" : "user: \(k.cloudUser)"]
+                                    .filter { !$0.isEmpty }.joined(separator: " · "))
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
+                            Spacer(minLength: 8)
+                            Button("Copy") { model.copy(k.publicKey) }.fixedSize()
+                            if !isOn {
+                                Button("Use this") {
+                                    model.config.server.keyPath = k.path
+                                    if !k.cloudUser.isEmpty && model.config.server.user.isEmpty { model.config.server.user = k.cloudUser }
+                                }
+                                .fixedSize()
+                            }
+                        }
+                        .padding(.vertical, 7).padding(.horizontal, 10)
+                        .background(isOn ? Color.accentColor.opacity(0.10) : .clear, in: RoundedRectangle(cornerRadius: 8))
+                    }
+                }
+            }
+
+            Divider()
+            Text("Create a new key").font(.subheadline.weight(.semibold))
+            Text("Type the user name you want on the server. Google Cloud creates this user by itself when you add the key.")
+                .font(.caption).foregroundStyle(.secondary)
+            HStack {
+                TextField("user name, e.g. \(NSUserName().lowercased())", text: $newUser)
+                    .textFieldStyle(.roundedBorder).frame(maxWidth: 260)
+                    .onSubmit(create)
+                Button("Create key", action: create)
+                    .disabled(newUser.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+            if !createError.isEmpty { Text(createError).font(.caption).foregroundStyle(.red) }
+
+            if let k = selected {
+                Divider()
+                Text("Add this key to your server").font(.subheadline.weight(.semibold))
+                Text(k.publicKey).font(.system(.caption, design: .monospaced)).textSelection(.enabled)
+                    .lineLimit(3).truncationMode(.middle)
+                    .padding(8).frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.background, in: RoundedRectangle(cornerRadius: 6))
+                HStack {
+                    Button("Copy public key") { model.copy(k.publicKey) }.buttonStyle(.borderedProminent)
+                    if !k.cloudUser.isEmpty && model.config.server.user != k.cloudUser {
+                        Button("Set SSH user to \(k.cloudUser)") { model.config.server.user = k.cloudUser }
+                    }
+                }
+                Picker("", selection: $target) {
+                    Text("Google Cloud").tag(0)
+                    Text("Other server").tag(1)
+                }
+                .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 320)
+                if target == 0 {
+                    VStack(alignment: .leading, spacing: 4) {
+                        step(1, "Open console.cloud.google.com → Compute Engine → VM instances.")
+                        step(2, "Click your VM → Edit.")
+                        step(3, "Security and access → SSH Keys → Add item.")
+                        step(4, "Paste the key (Copy public key above) → Save at the bottom.")
+                        step(5, "SSH user here = \(k.cloudUser.isEmpty ? "the name at the end of the key" : k.cloudUser). Then click Test connection.")
+                    }
+                } else {
+                    let host = model.config.server.host.isEmpty ? "SERVER-IP" : model.config.server.host
+                    let user = model.config.server.user.isEmpty ? "USER" : model.config.server.user
+                    let cmd = "ssh-copy-id -i \(k.path).pub \(user)@\(host)"
+                    Text("If you can log in to the server with a password, run this once in Terminal:")
+                        .font(.caption).foregroundStyle(.secondary)
+                    HStack {
+                        Text(cmd).font(.system(.caption, design: .monospaced)).textSelection(.enabled).lineLimit(1)
+                        Button("Copy") { model.copy(cmd) }.fixedSize()
+                    }
+                    Text("Or paste the key as a new line into ~/.ssh/authorized_keys of that user on the server.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    private func step(_ n: Int, _ text: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Text("\(n).").font(.caption.weight(.semibold)).foregroundStyle(.secondary).frame(width: 16, alignment: .trailing)
+            Text(text).font(.callout)
+        }
+    }
+
+    private func create() {
+        createError = model.createKey(user: newUser) ?? ""
+        if createError.isEmpty { newUser = "" }
     }
 }

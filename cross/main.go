@@ -38,10 +38,14 @@ func openBrowser(url string) {
 func main() {
 	noBrowser := flag.Bool("no-browser", false, "don't open the dashboard in the browser")
 	showVersion := flag.Bool("version", false, "print the version")
-	hostsSet := flag.Bool("hosts-set", false, "admin helper: set OntuTunnel's hosts-file block to the given domains")
+	hostsWrite := flag.String("hosts-write", "", "admin helper: check this file and make it the hosts file")
 	flag.Parse()
-	if *hostsSet {
-		if err := writeHosts(flag.Args()); err != nil {
+	if *hostsWrite != "" {
+		b, err := os.ReadFile(*hostsWrite)
+		if err == nil {
+			err = writeHostsContent(string(b))
+		}
+		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}

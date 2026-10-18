@@ -36,6 +36,7 @@ type LogLine struct {
 type App struct {
 	// ShowUI opens the dashboard: the app window on Windows, else the browser.
 	ShowUI        func()
+	outside       OutsideCheck // static IP: reachable from the internet?
 	hostsMu       sync.Mutex
 	hostsDeclined string // domain list the user said "No" to (don't ask again)
 	store         *Store

@@ -114,14 +114,42 @@ final class AppModel: ObservableObject {
             .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     }
 
-    func createKey() {
-        let path = (("~/.ssh/ontutunnel_ed25519") as NSString).expandingTildeInPath
-        if !FileManager.default.fileExists(atPath: path) {
-            try? FileManager.default.createDirectory(atPath: (path as NSString).deletingLastPathComponent, withIntermediateDirectories: true)
-            Shell.run("/usr/bin/ssh-keygen", ["-t", "ed25519", "-N", "", "-C", "ontutunnel@\(Host.current().localizedName ?? "mac")", "-f", path])
+    /// Keys in ~/.ssh with their public line and the user name in it.
+    var sshKeyInfos: [SSHKeyInfo] {
+        sshKeys.compactMap { path in
+            let full = (path as NSString).expandingTildeInPath + ".pub"
+            guard let line = try? String(contentsOfFile: full, encoding: .utf8)
+                .trimmingCharacters(in: .whitespacesAndNewlines), !line.isEmpty else { return nil }
+            return SSHKeyInfo(path: path, publicKey: line)
         }
-        config.server.keyPath = "~/.ssh/ontutunnel_ed25519"
-        log("Server", "SSH key ready: ~/.ssh/ontutunnel_ed25519 — add its public key to the server.")
+    }
+
+    nonisolated static func validUserName(_ s: String) -> Bool {
+        s.range(of: "^[a-z_][a-z0-9_-]{0,31}$", options: .regularExpression) != nil
+    }
+
+    /// New ed25519 key whose comment is `user`: Google Cloud creates that
+    /// user on the VM when the key is added. Selects it and fills SSH user.
+    @discardableResult
+    func createKey(user: String) -> String? {
+        let user = user.trimmingCharacters(in: .whitespaces).lowercased()
+        guard Self.validUserName(user) else {
+            return "Use small letters, numbers, - or _ (for example: faiyaz)."
+        }
+        var name = "ontutunnel_\(user)_ed25519"
+        var n = 2
+        while FileManager.default.fileExists(atPath: (("~/.ssh/" + name) as NSString).expandingTildeInPath) {
+            name = "ontutunnel_\(user)_\(n)_ed25519"; n += 1
+        }
+        let path = (("~/.ssh/" + name) as NSString).expandingTildeInPath
+        try? FileManager.default.createDirectory(atPath: (path as NSString).deletingLastPathComponent,
+                                                 withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        Shell.run("/usr/bin/ssh-keygen", ["-q", "-t", "ed25519", "-N", "", "-C", user, "-f", path])
+        guard FileManager.default.fileExists(atPath: path + ".pub") else { return "Couldn't create the key." }
+        config.server.keyPath = "~/.ssh/" + name
+        config.server.user = user
+        log("Server", "New SSH key ~/.ssh/\(name) for user \(user) — add its public key to the server.")
+        return nil
     }
 
     // MARK: - Server

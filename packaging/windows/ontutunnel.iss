@@ -41,10 +41,14 @@ Name: "{autodesktop}\OntuTunnel"; Filename: "{app}\ontutunnel.exe"; IconFilename
 Name: "{userstartup}\OntuTunnel"; Filename: "{app}\ontutunnel.exe"; Parameters: "-no-browser"; IconFilename: "{app}\ontutunnel.ico"; Tasks: startup
 
 [Run]
+; let visitors reach OntuTunnel's ports 80/443 ("My static IP") without a firewall prompt
+Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""OntuTunnel"""; Flags: runhidden; Check: IsAdminInstallMode
+Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall add rule name=""OntuTunnel"" dir=in action=allow program=""{app}\ontutunnel.exe"" enable=yes profile=any"; Flags: runhidden; Check: IsAdminInstallMode
 Filename: "{app}\ontutunnel.exe"; Description: "Open OntuTunnel"; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]
 Filename: "{cmd}"; Parameters: "/C taskkill /IM ontutunnel.exe /F"; Flags: runhidden; RunOnceId: "StopOntuTunnel"
+Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""OntuTunnel"""; Flags: runhidden; RunOnceId: "RemoveFirewallRule"
 
 [Code]
 // An update can't replace ontutunnel.exe while it runs: close it first
