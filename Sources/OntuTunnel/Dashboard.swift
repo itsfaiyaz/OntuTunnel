@@ -47,6 +47,7 @@ struct DashboardView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
+                UpdateBanner()
                 header
                 StatsRow(goToServer: goToServer)
                 servicesPanel

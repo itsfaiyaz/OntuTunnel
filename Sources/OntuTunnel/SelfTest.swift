@@ -42,7 +42,8 @@ enum SelfTest {
             case "--print-config":
                 var svc = Service(name: "My Shop", domain: "shop.example.com", localPort: 8001)
                 svc.frappeSite = "mysite.local"; svc.socketPort = 9001; svc.remotePort = 23456; svc.remoteSocketPort = 34567
-                print("===== Caddyfile =====\n" + RemoteServer.caddyfile([svc], email: ""))
+                print("===== Caddyfile =====\n" + RemoteServer.caddyMain(email: ""))
+                print("===== \(RemoteServer.caddySiteFile(svc.normalizedDomain)) =====\n" + RemoteServer.caddySite(svc))
                 print("===== nginx (before cert) =====\n" + RemoteServer.nginxConf(svc, withTLS: false))
                 print("===== nginx (with cert) =====\n" + RemoteServer.nginxConf(svc, withTLS: true))
             default:

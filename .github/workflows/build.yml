@@ -19,6 +19,24 @@ jobs:
         with: { go-version-file: cross/go.mod }
       - run: cd cross && go vet ./... && go test ./...
 
+  server-scenarios:
+    # the real server scripts, several computers sharing one nginx / Caddy server
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: { go-version-file: cross/go.mod }
+      - name: nginx (shared by 3 computers)
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq nginx certbot
+          sudo systemctl start nginx
+          cd cross && OT_SCENARIO=nginx go test -count=1 -v -run 'TestScenarioNginx|TestScenarioStalePortsOnlySSH' ./...
+      - name: Caddy (shared by 3 computers)
+        run: |
+          sudo systemctl stop nginx
+          cd cross && OT_SCENARIO=caddy go test -count=1 -v -run TestScenarioCaddy ./...
+
   windows:
     needs: test
     runs-on: windows-latest
@@ -36,6 +54,17 @@ jobs:
           if (!(Test-Path $iscc)) { choco install innosetup -y --no-progress }
           $v = (Get-Content VERSION).Trim()
           & $iscc "/DAppVersion=$v" packaging\windows\ontutunnel.iss
+      - name: Unit tests on Windows
+        shell: bash
+        run: cd cross && go test -count=1 ./...
+      - name: End-to-end check of the Windows app
+        shell: pwsh
+        run: ./.github/scripts/windows-smoke.ps1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-smoke
+          path: dist/smoke/
       - name: Portable zips
         shell: pwsh
         run: |
@@ -94,12 +123,17 @@ jobs:
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [windows, linux, macos]
+    needs: [windows, linux, macos, server-scenarios]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # only the packages, not the test results
       - uses: actions/download-artifact@v4
-        with: { path: out, merge-multiple: true }
+        with: { name: windows, path: out }
+      - uses: actions/download-artifact@v4
+        with: { name: linux, path: out }
+      - uses: actions/download-artifact@v4
+        with: { name: macos, path: out }
       - name: Checksums
         run: cd out && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
       - name: Publish release

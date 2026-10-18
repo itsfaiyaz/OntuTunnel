@@ -249,6 +249,9 @@ func (a *App) apiState(w http.ResponseWriter, _ *http.Request) {
 	a.mu.Lock()
 	outside := a.outside
 	a.mu.Unlock()
+	a.mu.Lock()
+	out["update"] = a.update
+	a.mu.Unlock()
 	out["staticChecks"] = map[string]any{"firewall": firewallState(), "outside": outside, "os": runtime.GOOS}
 	out["cloudflared"] = map[string]any{"state": cs, "detail": cd, "installed": cfBinary() != "", "loggedIn": cfLoggedIn()}
 	out["ready"], out["connected"], out["dnsTarget"] = a.Ready(), a.Connected(), a.DNSTarget()

@@ -970,6 +970,10 @@ struct MenuBarContent: View {
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
+        if let u = model.update {
+            Button("⬇︎ Update available: OntuTunnel \(u.version)…") { NSWorkspace.shared.open(u.url) }
+            Divider()
+        }
         Text(model.isSetUp ? "Server: \(model.config.server.host)" : "Server not set up")
         Text(model.tunnelUp ? "🟢 Tunnel connected" : "⚪️ Tunnel not connected")
         Divider()

@@ -130,16 +130,19 @@ func writeFile(path, content string) string {
 }
 
 type Facts struct {
-	OS         string `json:"os"`
-	Arch       string `json:"arch"`
-	Sudo       bool   `json:"sudo"`
-	Port80     string `json:"port80"`
-	Port443    string `json:"port443"`
-	Nginx      bool   `json:"nginx"`
-	Certbot    bool   `json:"certbot"`
-	OurCaddy   bool   `json:"ourCaddy"`
-	UsedPorts  []int  `json:"usedPorts"`
-	Forwarding string `json:"forwarding"`
+	OS        string `json:"os"`
+	Arch      string `json:"arch"`
+	Sudo      bool   `json:"sudo"`
+	Port80    string `json:"port80"`
+	Port443   string `json:"port443"`
+	Nginx     bool   `json:"nginx"`
+	Certbot   bool   `json:"certbot"`
+	OurCaddy  bool   `json:"ourCaddy"`
+	UsedPorts []int  `json:"usedPorts"`
+	// Tunnel ports OntuTunnel gave to each domain on this server (from any
+	// computer), so two computers never pick the same port.
+	Reserved   map[string][]int `json:"reserved"`
+	Forwarding string           `json:"forwarding"`
 }
 
 // Plan returns "caddy", "nginx", or an error explaining why not.
@@ -169,7 +172,8 @@ echo "nginx=$(command -v nginx || ls /usr/sbin/nginx 2>/dev/null)"
 echo "certbot=$(command -v certbot)"
 echo "ourcaddy=$(systemctl is-active ontutunnel-caddy 2>/dev/null | grep -m1 '^active$')"
 echo "used=$(echo "$L" | awk '{print $4}' | sed 's/.*://' | sort -un | tr '\n' ',')"
-echo "forwarding=$(sudo -n sshd -T 2>/dev/null | awk '/^allowtcpforwarding/{print $2}')"`
+echo "forwarding=$(sudo -n sshd -T 2>/dev/null | awk '/^allowtcpforwarding/{print $2}')"
+echo "reserved=$(grep -Ho '127\.0\.0\.1:[0-9]*' /etc/nginx/conf.d/ontutunnel-*.conf /etc/ontutunnel/sites/*.caddy 2>/dev/null | sed -E 's#^.*/(ontutunnel-)?([^/]*)\.(conf|caddy):127\.0\.0\.1:#\2=#' | tr '\n' ',')"`
 
 func Probe(store *Store) (Facts, error) {
 	out, errOut, err := Run(store, probeScript, 40*time.Second)
@@ -179,6 +183,11 @@ func Probe(store *Store) (Facts, error) {
 		}
 		return Facts{}, err
 	}
+	return parseFacts(out), nil
+}
+
+// parseFacts reads the probe script's "key=value" lines.
+func parseFacts(out string) Facts {
 	var f Facts
 	for _, line := range strings.Split(out, "\n") {
 		k, v, ok := strings.Cut(line, "=")
@@ -219,6 +228,14 @@ func Probe(store *Store) (Facts, error) {
 			}
 		case "forwarding":
 			f.Forwarding = v
+		case "reserved":
+			f.Reserved = map[string][]int{}
+			for _, pair := range strings.Split(v, ",") {
+				d, p, ok := strings.Cut(pair, "=")
+				if n, err := strconv.Atoi(p); ok && err == nil {
+					f.Reserved[d] = append(f.Reserved[d], n)
+				}
+			}
 		}
 	}
 	if f.OurCaddy {
@@ -229,7 +246,7 @@ func Probe(store *Store) (Facts, error) {
 			f.Port443 = ""
 		}
 	}
-	return f, nil
+	return f
 }
 
 func freePort(used map[int]bool) int {
@@ -269,23 +286,45 @@ func activeServices(services []Service) []Service {
 	return out
 }
 
-func caddyfile(services []Service, email string) string {
+// Caddy mode: the main Caddyfile only has global options and imports one
+// file per site, so several computers can share the server and each only
+// writes and removes its own sites.
+func caddyMain(email string) string {
 	var b strings.Builder
-	b.WriteString("# Written by OntuTunnel — edits are replaced on the next sync.\n{\n\tadmin off\n")
+	b.WriteString("# Written by OntuTunnel. Sites: /etc/ontutunnel/sites/<domain>.caddy\n{\n\tadmin off\n")
 	if email != "" {
 		fmt.Fprintf(&b, "\temail %s\n", email)
 	}
-	b.WriteString("}\n")
-	for _, s := range activeServices(services) {
-		fmt.Fprintf(&b, "\n%s {\n", s.NormalizedDomain())
-		if s.RemoteSocketPort > 0 {
-			fmt.Fprintf(&b, "\treverse_proxy /socket.io/* 127.0.0.1:%d\n", s.RemoteSocketPort)
+	b.WriteString("}\n\nimport /etc/ontutunnel/sites/*.caddy\n")
+	return b.String()
+}
+
+func caddySite(s Service) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "# Written by OntuTunnel\n%s {\n", s.NormalizedDomain())
+	if s.RemoteSocketPort > 0 {
+		fmt.Fprintf(&b, "\treverse_proxy /socket.io/* 127.0.0.1:%d\n", s.RemoteSocketPort)
+	}
+	fmt.Fprintf(&b, "\treverse_proxy 127.0.0.1:%d {\n", s.RemotePort)
+	if s.FrappeSite != "" {
+		fmt.Fprintf(&b, "\t\theader_up X-Frappe-Site-Name %s\n", s.FrappeSite)
+	}
+	b.WriteString("\t}\n}\n")
+	return b.String()
+}
+
+// conflictScript stops when a domain this computer hasn't published yet
+// already has an OntuTunnel file that points to another port: another
+// computer serves it, and taking it over would break that computer's site.
+func conflictScript(active []Service, published []string, file func(string) string) string {
+	var b strings.Builder
+	for _, s := range active {
+		d := s.NormalizedDomain()
+		if contains(published, d) {
+			continue
 		}
-		fmt.Fprintf(&b, "\treverse_proxy 127.0.0.1:%d {\n", s.RemotePort)
-		if s.FrappeSite != "" {
-			fmt.Fprintf(&b, "\t\theader_up X-Frappe-Site-Name %s\n", s.FrappeSite)
-		}
-		b.WriteString("\t}\n}\n")
+		fmt.Fprintf(&b, "if [ -e %q ] && ! grep -q '127.0.0.1:%d[;[:space:]]' %q; then echo \"CONFLICT: %s is already published by another computer with OntuTunnel. Remove it there first (or, if that computer is gone, delete %s on the server), or use another domain.\" >&2; exit 3; fi\n",
+			file(d), s.RemotePort, file(d), d, file(d))
 	}
 	return b.String()
 }
@@ -304,14 +343,41 @@ fi
 sudo systemctl daemon-reload`
 }
 
-func applyCaddyScript(services []Service, email string) string {
-	return "set -e\n" + writeFile("/etc/ontutunnel/Caddyfile.new", caddyfile(services, email)) + `
-sudo XDG_DATA_HOME=/var/lib/ontutunnel /opt/ontutunnel/caddy validate --config /etc/ontutunnel/Caddyfile.new --adapter caddyfile 2>&1 | tail -3
-sudo mv /etc/ontutunnel/Caddyfile.new /etc/ontutunnel/Caddyfile
+func caddySiteFile(d string) string { return "/etc/ontutunnel/sites/" + d + ".caddy" }
+
+func applyCaddyScript(services []Service, email string, published []string) string {
+	active := activeServices(services)
+	var keep []string
+	for _, s := range active {
+		keep = append(keep, s.NormalizedDomain())
+	}
+	var b strings.Builder
+	b.WriteString(`set -e
+sudo mkdir -p /etc/ontutunnel/sites /var/lib/ontutunnel
+sudo rm -rf /var/lib/ontutunnel/caddy-backup && sudo mkdir -p /var/lib/ontutunnel/caddy-backup
+sudo cp -a /etc/ontutunnel/sites /var/lib/ontutunnel/caddy-backup/ 2>/dev/null || true
+[ -e /etc/ontutunnel/Caddyfile ] && sudo cp /etc/ontutunnel/Caddyfile /var/lib/ontutunnel/caddy-backup/
+restore() { sudo rm -rf /etc/ontutunnel/sites; sudo cp -a /var/lib/ontutunnel/caddy-backup/sites /etc/ontutunnel/ 2>/dev/null || sudo mkdir -p /etc/ontutunnel/sites; sudo cp /var/lib/ontutunnel/caddy-backup/Caddyfile /etc/ontutunnel/ 2>/dev/null || true; }
+`)
+	b.WriteString(conflictScript(active, published, caddySiteFile))
+	// remove only sites this computer published that are gone now
+	for _, d := range published {
+		if !contains(keep, d) && validHost.MatchString(d) {
+			fmt.Fprintf(&b, "sudo rm -f %q\n", caddySiteFile(d))
+		}
+	}
+	for _, s := range active {
+		b.WriteString(writeFile(caddySiteFile(s.NormalizedDomain()), caddySite(s)) + "\n")
+	}
+	b.WriteString(writeFile("/etc/ontutunnel/Caddyfile", caddyMain(email)) + `
+if ! sudo XDG_DATA_HOME=/var/lib/ontutunnel /opt/ontutunnel/caddy validate --config /etc/ontutunnel/Caddyfile --adapter caddyfile >/tmp/ontutunnel-caddy.log 2>&1; then
+  tail -3 /tmp/ontutunnel-caddy.log >&2; restore; echo "Caddy config was invalid — put back the previous one." >&2; exit 1
+fi
 sudo systemctl enable ontutunnel-caddy >/dev/null 2>&1
 sudo systemctl restart ontutunnel-caddy
 sleep 2
-systemctl is-active ontutunnel-caddy`
+systemctl is-active ontutunnel-caddy`)
+	return b.String()
 }
 
 // ---------- nginx mode ----------
@@ -390,6 +456,7 @@ for d in %s; do
   case " %s " in *" ontutunnel-$d.conf "*) ;; *) sudo rm -f "/etc/nginx/conf.d/ontutunnel-$d.conf";; esac
 done
 `, strings.Join(domains, " "), strings.Join(published, " "), strings.Join(keep, " "))
+	b.WriteString(conflictScript(active, published, nginxFile))
 	for _, s := range active {
 		d := s.NormalizedDomain()
 		fmt.Fprintf(&b, "if sudo test -f /etc/letsencrypt/live/%s/fullchain.pem; then\n  %s\nelse\n  %s\nfi\n",
@@ -420,12 +487,29 @@ fi
 	return b.String()
 }
 
-const uninstallScript = `sudo systemctl disable --now ontutunnel-caddy 2>/dev/null || true
-sudo rm -f /etc/systemd/system/ontutunnel-caddy.service
-sudo systemctl daemon-reload
-if ls /etc/nginx/conf.d/ontutunnel-*.conf >/dev/null 2>&1; then
-  sudo rm -f /etc/nginx/conf.d/ontutunnel-*.conf
-  sudo nginx -t && sudo systemctl reload nginx
+// uninstallScript removes this computer's sites only. The shared parts
+// (OntuTunnel's Caddy, its folders) go only when no other computer still has
+// OntuTunnel sites on the server.
+func uninstallScript(domains []string) string {
+	var ds []string
+	for _, d := range domains {
+		if validHost.MatchString(d) {
+			ds = append(ds, d)
+		}
+	}
+	return `for d in ` + strings.Join(ds, " ") + `; do
+  sudo rm -f "/etc/nginx/conf.d/ontutunnel-$d.conf" "/etc/ontutunnel/sites/$d.caddy"
+done
+if ls /etc/nginx/conf.d/ontutunnel-*.conf /etc/ontutunnel/sites/*.caddy >/dev/null 2>&1; then
+  echo "OTHERS-REMAIN"
+  if systemctl is-active --quiet nginx; then sudo nginx -t 2>/dev/null && sudo systemctl reload nginx; fi
+  if systemctl is-active --quiet ontutunnel-caddy; then sudo systemctl restart ontutunnel-caddy; fi
+else
+  sudo systemctl disable --now ontutunnel-caddy localbridge-caddy 2>/dev/null || true
+  sudo rm -f /etc/systemd/system/ontutunnel-caddy.service /etc/systemd/system/localbridge-caddy.service
+  sudo systemctl daemon-reload
+  if systemctl is-active --quiet nginx; then sudo nginx -t && sudo systemctl reload nginx; fi
+  sudo rm -rf /opt/ontutunnel /etc/ontutunnel /var/lib/ontutunnel /var/www/ontutunnel-acme
 fi
-sudo rm -rf /opt/ontutunnel /etc/ontutunnel /var/lib/ontutunnel /var/www/ontutunnel-acme
 echo removed`
+}

@@ -46,6 +46,8 @@ final class AppModel: ObservableObject {
     @Published var webState: WebDashboard.State = .stopped
     /// Bumped after /etc/hosts changes so the Hosts page re-reads it.
     @Published var hostsVersion = 0
+    /// A newer release on GitHub, if any.
+    @Published var update: UpdateInfo?
     var hostsDeclined = ""
 
     init() {
@@ -85,7 +87,12 @@ final class AppModel: ObservableObject {
             await refreshNetwork()
             await refreshAll()
             await checkAllWildcards()
+            await checkForUpdate()
         }
+        timers.append(Timer.scheduledTimer(withTimeInterval: 12 * 3600, repeats: true) { [weak self] _ in
+            let model = self
+            Task { @MainActor in await model?.checkForUpdate() }
+        })
         timers.append(Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
             let model = self
             Task { @MainActor in await model?.refreshPorts() }
@@ -235,7 +242,7 @@ final class AppModel: ObservableObject {
         }
         config.serverMode = mode
 
-        assignPorts(used: f.usedPorts)
+        assignPorts(used: f.usedPorts, reserved: f.reserved)
         step(5, .ok, config.services.filter(\.enabled).map { "\($0.normalizedDomain) → server 127.0.0.1:\($0.remotePort)" }.joined(separator: ", "))
 
         step(6, .checking)
@@ -260,17 +267,23 @@ final class AppModel: ObservableObject {
     }
 
     /// Give every enabled service a random free port on the server.
-    private func assignPorts(used: Set<Int>) {
-        var taken = used
+    /// Free ports on the server for each service. Ports another computer's
+    /// OntuTunnel sites use (reserved) are never taken, even while it is offline.
+    private func assignPorts(used: Set<Int>, reserved: [String: [Int]]) {
+        let mine = Set(config.services.map(\.normalizedDomain))
+        let foreign = Set(reserved.filter { !mine.contains($0.key) }.values.flatMap { $0 })
+        var taken = used.union(foreign)
         for s in config.services { taken.insert(s.remotePort); taken.insert(s.remoteSocketPort) }
         for i in config.services.indices {
-            if config.services[i].remotePort == 0 || used.contains(config.services[i].remotePort) {
+            if config.services[i].remotePort == 0 || used.contains(config.services[i].remotePort)
+                || foreign.contains(config.services[i].remotePort) {
                 taken.remove(config.services[i].remotePort)
                 config.services[i].remotePort = RemoteServer.freePort(avoiding: taken)
                 taken.insert(config.services[i].remotePort)
             }
             if config.services[i].socketPort > 0 {
-                if config.services[i].remoteSocketPort == 0 || used.contains(config.services[i].remoteSocketPort) {
+                if config.services[i].remoteSocketPort == 0 || used.contains(config.services[i].remoteSocketPort)
+                    || foreign.contains(config.services[i].remoteSocketPort) {
                     config.services[i].remoteSocketPort = RemoteServer.freePort(avoiding: taken)
                     taken.insert(config.services[i].remoteSocketPort)
                 }
@@ -284,7 +297,7 @@ final class AppModel: ObservableObject {
     private func applyConfig() async -> (Bool, String) {
         guard let mode = config.serverMode else { return (false, "Server not set up yet.") }
         let script = mode == .caddy
-            ? RemoteServer.applyCaddyScript(config.services, email: config.server.email)
+            ? RemoteServer.applyCaddyScript(config.services, email: config.server.email, published: config.published)
             : RemoteServer.applyNginxScript(config.services, email: config.server.email, published: config.published)
         let r = await RemoteServer.run(config.server, script, timeout: 240)
         for line in r.out.split(separator: "\n") where line.hasPrefix("CERT-") {
@@ -322,7 +335,7 @@ final class AppModel: ObservableObject {
             let (_, f) = await RemoteServer.probe(config.server)
             guard let f else { syncMessage = "Can't reach the server."; return }
             facts = f
-            assignPorts(used: f.usedPorts)
+            assignPorts(used: f.usedPorts, reserved: f.reserved)
         }
         let (ok, message) = await applyConfig()
         if ok { connectTunnel() }
@@ -346,9 +359,14 @@ final class AppModel: ObservableObject {
         busy = true
         defer { busy = false }
         tunnel.stop()
-        let r = await RemoteServer.run(config.server, RemoteServer.uninstallScript(config.serverMode))
+        let domains = Array(Set((config.published ?? []) + config.services.map(\.normalizedDomain)))
+        let r = await RemoteServer.run(config.server, RemoteServer.uninstallScript(domains: domains))
         if r.ok {
+            if r.out.contains("OTHERS-REMAIN") {
+                log("Server", "Removed this Mac's sites. Other computers still use OntuTunnel on this server, so its shared parts were kept.")
+            }
             config.serverMode = nil
+            config.published = []
             for i in config.services.indices { config.services[i].remotePort = 0; config.services[i].remoteSocketPort = 0 }
             steps = []
             log("Server", "Removed everything OntuTunnel had added to \(config.server.host).")

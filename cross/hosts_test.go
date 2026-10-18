@@ -97,3 +97,14 @@ func TestCreateKey(t *testing.T) {
 		t.Fatal("overwrote an existing key")
 	}
 }
+
+func TestNewer(t *testing.T) {
+	for _, c := range []struct {
+		a, b string
+		want bool
+	}{{"1.1.3", "1.1.2", true}, {"1.1.10", "1.1.9", true}, {"1.1.2", "1.1.2", false}, {"1.0.9", "1.1.0", false}, {"2.0", "1.9.9", true}, {"1.2.0", "dev", false}} {
+		if got := newer(c.a, c.b); got != c.want {
+			t.Errorf("newer(%s,%s)=%v", c.a, c.b, got)
+		}
+	}
+}

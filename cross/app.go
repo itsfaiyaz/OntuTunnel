@@ -37,6 +37,7 @@ type App struct {
 	// ShowUI opens the dashboard: the app window on Windows, else the browser.
 	ShowUI        func()
 	outside       OutsideCheck // static IP: reachable from the internet?
+	update        UpdateInfo   // newer release on GitHub, if any
 	hostsMu       sync.Mutex
 	hostsDeclined string // domain list the user said "No" to (don't ask again)
 	store         *Store
@@ -106,6 +107,7 @@ func (a *App) Start() {
 		}
 	}
 	a.applyKeepAwake()
+	go a.watchUpdates()
 	if cfg.AutoConnect {
 		a.StartMode()
 	}
@@ -343,7 +345,7 @@ func (a *App) SetupRelay() {
 		a.setStep(4, "ok", "Existing nginx — new files only: /etc/nginx/conf.d/ontutunnel-*.conf")
 	}
 	a.store.Update(func(c *Config) { c.ServerMode = mode })
-	a.assignPorts(f.UsedPorts)
+	a.assignPorts(f.UsedPorts, f.Reserved)
 	var parts []string
 	for _, s := range a.store.Get().Services {
 		if s.Enabled {
@@ -394,12 +396,27 @@ func (a *App) SetupRelay() {
 	}
 }
 
-func (a *App) assignPorts(used []int) {
+// assignPorts gives each service free ports on the server. Ports that
+// another computer's OntuTunnel sites use (reserved) are never taken, even
+// while that computer is offline.
+func (a *App) assignPorts(used []int, reserved map[string][]int) {
 	taken := map[int]bool{}
 	for _, p := range used {
 		taken[p] = true
 	}
 	a.store.Update(func(c *Config) {
+		mine := map[string]bool{}
+		for _, s := range c.Services {
+			mine[s.NormalizedDomain()] = true
+		}
+		foreign := map[int]bool{}
+		for d, ports := range reserved {
+			if !mine[d] {
+				for _, p := range ports {
+					foreign[p], taken[p] = true, true
+				}
+			}
+		}
 		for _, s := range c.Services {
 			taken[s.RemotePort], taken[s.RemoteSocketPort] = true, true
 		}
@@ -409,12 +426,12 @@ func (a *App) assignPorts(used []int) {
 		}
 		for i := range c.Services {
 			s := &c.Services[i]
-			if s.RemotePort == 0 || usedSet[s.RemotePort] {
+			if s.RemotePort == 0 || usedSet[s.RemotePort] || foreign[s.RemotePort] {
 				s.RemotePort = freePort(taken)
 				taken[s.RemotePort] = true
 			}
 			if s.SocketPort > 0 {
-				if s.RemoteSocketPort == 0 || usedSet[s.RemoteSocketPort] {
+				if s.RemoteSocketPort == 0 || usedSet[s.RemoteSocketPort] || foreign[s.RemoteSocketPort] {
 					s.RemoteSocketPort = freePort(taken)
 					taken[s.RemoteSocketPort] = true
 				}
@@ -429,7 +446,7 @@ func (a *App) applyConfig() (bool, string) {
 	cfg := a.store.Get()
 	script := applyNginxScript(cfg.Services, cfg.Server.Email, cfg.Published)
 	if cfg.ServerMode == "caddy" {
-		script = applyCaddyScript(cfg.Services, cfg.Server.Email)
+		script = applyCaddyScript(cfg.Services, cfg.Server.Email, cfg.Published)
 	}
 	out, errOut, err := Run(a.store, script, 4*time.Minute)
 	pending := false
@@ -479,7 +496,7 @@ func (a *App) SyncRelay() {
 	}
 	if needPorts {
 		if f, err := Probe(a.store); err == nil {
-			a.assignPorts(f.UsedPorts)
+			a.assignPorts(f.UsedPorts, f.Reserved)
 		}
 	}
 	okApply, msg := a.applyConfig()
@@ -516,12 +533,23 @@ func (a *App) ConnectTunnel() {
 
 func (a *App) RemoveFromServer() error {
 	a.tunnel.Stop()
-	_, errOut, err := Run(a.store, uninstallScript, 2*time.Minute)
+	cfg := a.store.Get()
+	domains := cfg.Published
+	for _, s := range cfg.Services {
+		if !contains(domains, s.NormalizedDomain()) {
+			domains = append(domains, s.NormalizedDomain())
+		}
+	}
+	out, errOut, err := Run(a.store, uninstallScript(domains), 2*time.Minute)
 	if err != nil {
 		return fmt.Errorf("%v %s", err, errOut)
 	}
+	if strings.Contains(out, "OTHERS-REMAIN") {
+		a.Log("Server", "Removed this computer's sites. Other computers still use OntuTunnel on this server, so its shared parts were kept.", false)
+	}
 	a.store.Update(func(c *Config) {
 		c.ServerMode = ""
+		c.Published = nil
 		for i := range c.Services {
 			c.Services[i].RemotePort, c.Services[i].RemoteSocketPort = 0, 0
 		}

@@ -94,6 +94,9 @@ enum RemoteServer {
         var nginx = false, certbot = false, ourCaddy = false
         var usedPorts: Set<Int> = []
         var forwarding = ""
+        /// Tunnel ports OntuTunnel gave to each domain on this server (from any
+        /// computer), so two computers never pick the same port.
+        var reserved: [String: [Int]] = [:]
 
         enum Plan { case use(ServerMode), blocked(String) }
 
@@ -123,6 +126,7 @@ enum RemoteServer {
         echo "ourcaddy=$( (systemctl is-active ontutunnel-caddy || systemctl is-active localbridge-caddy) 2>/dev/null | grep -m1 '^active$')"
         echo "used=$(echo "$L" | awk '{print $4}' | sed 's/.*://' | sort -un | tr '\n' ',')"
         echo "forwarding=$(sudo -n sshd -T 2>/dev/null | awk '/^allowtcpforwarding/{print $2}')"
+        echo "reserved=$(grep -Ho '127\.0\.0\.1:[0-9]*' /etc/nginx/conf.d/ontutunnel-*.conf /etc/ontutunnel/sites/*.caddy 2>/dev/null | sed -E 's#^.*/(ontutunnel-)?([^/]*)\.(conf|caddy):127\.0\.0\.1:#\2=#' | tr '\n' ',')"
         """#
         let r = await run(s, script, timeout: 40)
         guard r.ok else { return (r, nil) }
@@ -144,6 +148,11 @@ enum RemoteServer {
             case "ourcaddy": f.ourCaddy = v == "active"
             case "used": f.usedPorts = Set(v.split(separator: ",").compactMap { Int($0) })
             case "forwarding": f.forwarding = v
+            case "reserved":
+                for pair in v.split(separator: ",") {
+                    let kv = pair.split(separator: "=", maxSplits: 1).map(String.init)
+                    if kv.count == 2, let n = Int(kv[1]) { f.reserved[kv[0], default: []].append(n) }
+                }
             default: break
             }
         }
@@ -181,20 +190,33 @@ enum RemoteServer {
     WantedBy=multi-user.target
     """
 
-    static func caddyfile(_ services: [Service], email: String) -> String {
-        var out = "# Written by OntuTunnel — edits are replaced on the next sync.\n{\n\tadmin off\n"
+    /// Caddy mode: the main Caddyfile only has global options and imports one
+    /// file per site, so several computers can share the server and each only
+    /// writes and removes its own sites.
+    static func caddyMain(email: String) -> String {
+        var out = "# Written by OntuTunnel. Sites: /etc/ontutunnel/sites/<domain>.caddy\n{\n\tadmin off\n"
         if !email.isEmpty { out += "\temail \(email)\n" }
-        out += "}\n"
-        for s in services where s.enabled && s.remotePort > 0 && s.isSafe {
-            out += "\n\(s.normalizedDomain) {\n"
-            if s.remoteSocketPort > 0 {
-                out += "\treverse_proxy /socket.io/* 127.0.0.1:\(s.remoteSocketPort)\n"
-            }
-            out += "\treverse_proxy 127.0.0.1:\(s.remotePort) {\n"
-            if !s.frappeSite.isEmpty { out += "\t\theader_up X-Frappe-Site-Name \(s.frappeSite)\n" }
-            out += "\t}\n}\n"
-        }
-        return out
+        return out + "}\n\nimport /etc/ontutunnel/sites/*.caddy\n"
+    }
+
+    static func caddySite(_ s: Service) -> String {
+        var out = "# Written by OntuTunnel\n\(s.normalizedDomain) {\n"
+        if s.remoteSocketPort > 0 { out += "\treverse_proxy /socket.io/* 127.0.0.1:\(s.remoteSocketPort)\n" }
+        out += "\treverse_proxy 127.0.0.1:\(s.remotePort) {\n"
+        if !s.frappeSite.isEmpty { out += "\t\theader_up X-Frappe-Site-Name \(s.frappeSite)\n" }
+        return out + "\t}\n}\n"
+    }
+
+    static func caddySiteFile(_ d: String) -> String { "/etc/ontutunnel/sites/\(d).caddy" }
+
+    /// Stops when a domain this Mac hasn't published yet already has an
+    /// OntuTunnel file pointing to another port: another computer serves it.
+    static func conflictScript(_ active: [Service], published: [String]?, file: (String) -> String) -> String {
+        guard let published else { return "" }   // config from before this was tracked
+        return active.filter { !published.contains($0.normalizedDomain) }.map { s in
+            let d = s.normalizedDomain, f = file(d)
+            return "if [ -e '\(f)' ] && ! grep -q '127.0.0.1:\(s.remotePort)[;[:space:]]' '\(f)'; then echo \"CONFLICT: \(d) is already published by another computer with OntuTunnel. Remove it there first (or, if that computer is gone, delete \(f) on the server), or use another domain.\" >&2; exit 3; fi\n"
+        }.joined()
     }
 
     static func installCaddyScript() -> String {
@@ -221,17 +243,35 @@ enum RemoteServer {
         """
     }
 
-    static func applyCaddyScript(_ services: [Service], email: String) -> String {
-        """
+    static func applyCaddyScript(_ services: [Service], email: String, published: [String]?) -> String {
+        let active = services.filter { $0.enabled && $0.remotePort > 0 && $0.isSafe }
+        let keep = active.map(\.normalizedDomain)
+        var script = """
         set -e
-        \(writeFile("/etc/ontutunnel/Caddyfile.new", caddyfile(services, email: email)))
-        sudo XDG_DATA_HOME=/var/lib/ontutunnel /opt/ontutunnel/caddy validate --config /etc/ontutunnel/Caddyfile.new --adapter caddyfile 2>&1 | tail -3
-        sudo mv /etc/ontutunnel/Caddyfile.new /etc/ontutunnel/Caddyfile
+        sudo mkdir -p /etc/ontutunnel/sites /var/lib/ontutunnel
+        sudo rm -rf /var/lib/ontutunnel/caddy-backup && sudo mkdir -p /var/lib/ontutunnel/caddy-backup
+        sudo cp -a /etc/ontutunnel/sites /var/lib/ontutunnel/caddy-backup/ 2>/dev/null || true
+        [ -e /etc/ontutunnel/Caddyfile ] && sudo cp /etc/ontutunnel/Caddyfile /var/lib/ontutunnel/caddy-backup/
+        restore() { sudo rm -rf /etc/ontutunnel/sites; sudo cp -a /var/lib/ontutunnel/caddy-backup/sites /etc/ontutunnel/ 2>/dev/null || sudo mkdir -p /etc/ontutunnel/sites; sudo cp /var/lib/ontutunnel/caddy-backup/Caddyfile /etc/ontutunnel/ 2>/dev/null || true; }
+
+        """
+        script += conflictScript(active, published: published, file: caddySiteFile)
+        // remove only sites this Mac published that are gone now
+        for d in published ?? [] where !keep.contains(d) && HostsFile.isDomain(d) {
+            script += "sudo rm -f '\(caddySiteFile(d))'\n"
+        }
+        for s in active { script += writeFile(caddySiteFile(s.normalizedDomain), caddySite(s)) + "\n" }
+        script += writeFile("/etc/ontutunnel/Caddyfile", caddyMain(email: email)) + """
+
+        if ! sudo XDG_DATA_HOME=/var/lib/ontutunnel /opt/ontutunnel/caddy validate --config /etc/ontutunnel/Caddyfile --adapter caddyfile >/tmp/ontutunnel-caddy.log 2>&1; then
+          tail -3 /tmp/ontutunnel-caddy.log >&2; restore; echo "Caddy config was invalid — put back the previous one." >&2; exit 1
+        fi
         sudo systemctl enable ontutunnel-caddy >/dev/null 2>&1
         sudo systemctl restart ontutunnel-caddy
         sleep 2
         systemctl is-active ontutunnel-caddy
         """
+        return script
     }
 
     // MARK: nginx mode (existing nginx: only our own files)
@@ -345,6 +385,7 @@ enum RemoteServer {
         """)
 
         """
+        script += conflictScript(active, published: published, file: { "/etc/nginx/conf.d/ontutunnel-\($0).conf" })
         for s in active {
             let d = s.normalizedDomain
             script += """
@@ -385,17 +426,27 @@ enum RemoteServer {
 
     // MARK: Remove everything OntuTunnel added
 
-    static func uninstallScript(_ mode: ServerMode?) -> String {
-        """
-        sudo systemctl disable --now ontutunnel-caddy localbridge-caddy 2>/dev/null || true
-        sudo rm -f /etc/systemd/system/ontutunnel-caddy.service /etc/systemd/system/localbridge-caddy.service
-        sudo systemctl daemon-reload
-        if ls /etc/nginx/conf.d/ontutunnel-*.conf /etc/nginx/conf.d/localbridge-*.conf >/dev/null 2>&1; then
-          sudo rm -f /etc/nginx/conf.d/ontutunnel-*.conf /etc/nginx/conf.d/localbridge-*.conf
-          sudo nginx -t && sudo systemctl reload nginx
+    /// Removes this Mac's sites only. The shared parts (OntuTunnel's Caddy,
+    /// its folders) go only when no other computer still has OntuTunnel
+    /// sites on the server.
+    static func uninstallScript(domains: [String]) -> String {
+        let ds = domains.filter { HostsFile.isDomain($0) }.joined(separator: " ")
+        return """
+        for d in \(ds); do
+          sudo rm -f "/etc/nginx/conf.d/ontutunnel-$d.conf" "/etc/nginx/conf.d/localbridge-$d.conf" "/etc/ontutunnel/sites/$d.caddy"
+        done
+        if ls /etc/nginx/conf.d/ontutunnel-*.conf /etc/ontutunnel/sites/*.caddy >/dev/null 2>&1; then
+          echo "OTHERS-REMAIN"
+          if systemctl is-active --quiet nginx; then sudo nginx -t 2>/dev/null && sudo systemctl reload nginx; fi
+          if systemctl is-active --quiet ontutunnel-caddy; then sudo systemctl restart ontutunnel-caddy; fi
+        else
+          sudo systemctl disable --now ontutunnel-caddy localbridge-caddy 2>/dev/null || true
+          sudo rm -f /etc/systemd/system/ontutunnel-caddy.service /etc/systemd/system/localbridge-caddy.service
+          sudo systemctl daemon-reload
+          if systemctl is-active --quiet nginx; then sudo nginx -t && sudo systemctl reload nginx; fi
+          sudo rm -rf /opt/ontutunnel /etc/ontutunnel /var/lib/ontutunnel /var/www/ontutunnel-acme
+          sudo rm -rf /opt/localbridge /etc/localbridge /var/lib/localbridge /var/www/localbridge-acme
         fi
-        sudo rm -rf /opt/ontutunnel /etc/ontutunnel /var/lib/ontutunnel /var/www/ontutunnel-acme
-        sudo rm -rf /opt/localbridge /etc/localbridge /var/lib/localbridge /var/www/localbridge-acme
         echo removed
         """
     }

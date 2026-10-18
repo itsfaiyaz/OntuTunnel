@@ -86,7 +86,7 @@ function render(){if(!S)return;
   const cs=connState();$('#navState').className='pill '+cs;$('#navState').textContent=S.modeTitle+(S.connected?' · on':S.ready?' · off':' · not set up');$('#ver').textContent='v'+S.version;
   const keep=document.activeElement&&document.activeElement.id?document.activeElement.id:null;
   if(keep&&['INPUT','SELECT'].includes(document.activeElement.tagName)&&page!='dashboard')return; // don't clobber typing
-  $('#main').innerHTML=({dashboard,connection,domains,hosts,logs,settings,guide}[page]||dashboard)();
+  $('#main').innerHTML=updateBanner()+({dashboard,connection,domains,hosts,logs,settings,guide}[page]||dashboard)();
   if(keep&&document.getElementById(keep)){const el=document.getElementById(keep);el.focus();if(el.setSelectionRange&&el.value!=null)el.setSelectionRange(el.value.length,el.value.length)}
 }
 const head=(t,s,right='')=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><div style="display:flex;gap:10px;align-items:center"><button class="ghost burger" onclick="$('#nav').classList.add('open')">☰</button><div><h1>${t}</h1>${s?`<p class="sub">${s}</p>`:''}</div></div><div style="display:flex;gap:8px;flex-wrap:wrap">${right}</div></div>`;
@@ -180,6 +180,11 @@ function staticChecklist(){const ck=S.staticChecks||{},o=ck.outside||{},on=(S.se
   ${item(o.state||'unknown','4 · Router: ports 80 and 443 reach this computer',`In the router's admin page add port forwarding: TCP <b>80</b> and <b>443</b> → <b class="mono">${esc(lan)}</b>. Give this computer a fixed LAN IP. ${o.text?'<br>Last test: '+esc(o.text):''}<br><button onclick="act('testOutside')" ${o.state=='checking'?'disabled':''}>Test from the internet</button> <span>(uses your server from My server settings)</span>`)}
   ${item(!on.length?'unknown':certOK.length==on.length?'ok':'warning','5 · HTTPS certificates',!on.length?'Add a service first.':certOK.length==on.length?'Every site has its certificate.':'Comes by itself within a minute once 1–4 are done. Waiting for: '+on.filter(s=>!certOK.includes(s)).map(s=>'<span class="mono">'+esc(s.domain)+'</span>').join(', '))}
   <p class="muted" style="margin:6px 0 0;font-size:12.5px">If step 4 keeps failing although the router is set up, your internet provider blocks incoming connections (common on home plans). Ask them to open ports 80 and 443, or use <b>My server (SSH)</b>, which needs none of this.</p></div>`}
+
+// "New version available" (checked on GitHub twice a day; hide per version)
+function updateBanner(){const u=S.update||{};let hidden='';try{hidden=localStorage.getItem('ot-hide-update')||''}catch(e){}
+  if(!u.version||hidden===u.version)return '';
+  return `<div class="panel" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:10px 14px;margin:0 0 14px;border-color:var(--ontu)"><b>OntuTunnel ${esc(u.version)} is available</b><span class="muted">You have ${esc(S.version)}.</span><span style="flex:1"></span><a href="${esc(u.url)}" target="_blank" rel="noopener"><button class="primary">Download</button></a><button class="ghost" onclick="try{localStorage.setItem('ot-hide-update',${JSON.stringify(u.version)})}catch(e){};render()">Later</button></div>`}
 
 let keyTarget='gcp';
 function copy(t){navigator.clipboard.writeText(t)}
