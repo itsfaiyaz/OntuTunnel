@@ -40,6 +40,9 @@ on **your own domain** with a real HTTPS lock.
 - 🧭 **Sees what's running**: lists the ports open on your computer. Click **Publish** to put one online.
 - 🟢 **Health at a glance**: for every site it checks the app, DNS and HTTPS, from the internet's side.
 - 📶 **Survives network changes**: switch Wi-Fi, use a hotspot or get a new IP, and it reconnects in seconds.
+- 👥 **One server, many computers**: your laptop, your desktop and your team can all publish sites through the same server. Each one only touches its own sites.
+- 🔔 **Update notice**: tells you when a new version is out, with a Download button.
+- 🔐 **Private dashboard**: other websites open in your browser can't use it, and everything sent to the server is checked first.
 - 🔑 **Easy SSH keys**: see the keys on your computer, or create one with a user name; step-by-step for Google Cloud and other servers.
 - 📝 **Hosts file editor**: see, add, change and delete entries from the app (Mac, Windows, Linux).
 - ✅ **First-time HTTPS checklist** for *My static IP*: ports, firewall, DNS, router and a test from the internet.
@@ -151,11 +154,13 @@ Only its own things. Nothing you already run is edited.
 
 | Your server has | OntuTunnel adds |
 |---|---|
-| Nothing on ports 80/443 | Its own Caddy web server with automatic HTTPS |
+| Nothing on ports 80/443 | Its own Caddy web server with automatic HTTPS, one file per site in `/etc/ontutunnel/sites/` |
 | nginx with other sites | One `ontutunnel-<domain>.conf` per site. Checked with `nginx -t` first, undone if anything fails |
 | Something else on 80/443 | Nothing. It stops and tells you |
 
-Tunnel ports are random and private (`127.0.0.1` only). **Remove OntuTunnel from server** deletes everything it added.
+Tunnel ports are random and private (`127.0.0.1` only).
+
+**Several computers on one server:** each computer only writes and removes its own sites. Ports another computer uses are never taken, even when it is switched off. A domain another computer already serves is refused, with a clear message. **Remove OntuTunnel from server** deletes only this computer's sites; the shared parts go when the last computer leaves.
 
 ## FAQ
 
@@ -166,6 +171,8 @@ Tunnel ports are random and private (`127.0.0.1` only). **Remove OntuTunnel from
 **I changed Wi-Fi / my IP changed. Does it still work?** Yes. It notices the change and reconnects within seconds. Only *My static IP* mode is tied to one network.
 
 **What if my computer sleeps?** A sleeping computer can't serve sites. Turn on **Settings → Keep this computer awake**. The screen can still turn off. Closing a laptop lid usually still sleeps it.
+
+**Can two computers use the same server?** Yes. Set up the same server on each computer; every computer publishes its own sites without touching the others.
 
 **Can I control it from my phone?** Yes. In Settings, allow other devices on your Wi-Fi and open the link with the access key.
 
