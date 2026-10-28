@@ -353,7 +353,7 @@ func applyCaddyScript(services []Service, email string, published []string) stri
 	}
 	var b strings.Builder
 	b.WriteString(`set -e
-sudo mkdir -p /etc/ontutunnel/sites /var/lib/ontutunnel
+` + tmpDir + `sudo mkdir -p /etc/ontutunnel/sites /var/lib/ontutunnel
 sudo rm -rf /var/lib/ontutunnel/caddy-backup && sudo mkdir -p /var/lib/ontutunnel/caddy-backup
 sudo cp -a /etc/ontutunnel/sites /var/lib/ontutunnel/caddy-backup/ 2>/dev/null || true
 [ -e /etc/ontutunnel/Caddyfile ] && sudo cp /etc/ontutunnel/Caddyfile /var/lib/ontutunnel/caddy-backup/
@@ -370,8 +370,8 @@ restore() { sudo rm -rf /etc/ontutunnel/sites; sudo cp -a /var/lib/ontutunnel/ca
 		b.WriteString(writeFile(caddySiteFile(s.NormalizedDomain()), caddySite(s)) + "\n")
 	}
 	b.WriteString(writeFile("/etc/ontutunnel/Caddyfile", caddyMain(email)) + `
-if ! sudo XDG_DATA_HOME=/var/lib/ontutunnel /opt/ontutunnel/caddy validate --config /etc/ontutunnel/Caddyfile --adapter caddyfile >/tmp/ontutunnel-caddy.log 2>&1; then
-  tail -3 /tmp/ontutunnel-caddy.log >&2; restore; echo "Caddy config was invalid — put back the previous one." >&2; exit 1
+if ! sudo XDG_DATA_HOME=/var/lib/ontutunnel /opt/ontutunnel/caddy validate --config /etc/ontutunnel/Caddyfile --adapter caddyfile >"$T/caddy.log" 2>&1; then
+  tail -3 "$T/caddy.log" >&2; restore; echo "Caddy config was invalid — put back the previous one." >&2; exit 1
 fi
 sudo systemctl enable ontutunnel-caddy >/dev/null 2>&1
 sudo systemctl restart ontutunnel-caddy
@@ -379,6 +379,12 @@ sleep 2
 systemctl is-active ontutunnel-caddy`)
 	return b.String()
 }
+
+// tmpDir: every run gets its own temp folder, removed at the end. Several
+// SSH users (one per computer) share the server's /tmp, so fixed names like
+// /tmp/ontutunnel-certbot would belong to whoever ran first and fail for the rest.
+const tmpDir = `T=$(mktemp -d /tmp/ontutunnel.XXXXXX); trap 'rm -rf "$T"' EXIT
+`
 
 // ---------- nginx mode ----------
 
@@ -443,7 +449,7 @@ func applyNginxScript(services []Service, email string, published []string) stri
 	}
 	var b strings.Builder
 	fmt.Fprintf(&b, `set -e
-sudo mkdir -p /var/www/ontutunnel-acme /var/lib/ontutunnel/nginx-backup
+`+tmpDir+`sudo mkdir -p /var/www/ontutunnel-acme /var/lib/ontutunnel/nginx-backup
 sudo rm -f /var/lib/ontutunnel/nginx-backup/*
 for f in /etc/nginx/conf.d/ontutunnel-*.conf; do [ -e "$f" ] && sudo cp "$f" /var/lib/ontutunnel/nginx-backup/; done
 restore() { sudo rm -f /etc/nginx/conf.d/ontutunnel-*.conf; sudo cp /var/lib/ontutunnel/nginx-backup/* /etc/nginx/conf.d/ 2>/dev/null || true; }
@@ -462,8 +468,8 @@ done
 		fmt.Fprintf(&b, "if sudo test -f /etc/letsencrypt/live/%s/fullchain.pem; then\n  %s\nelse\n  %s\nfi\n",
 			d, writeFile(nginxFile(d), nginxConf(s, true)), writeFile(nginxFile(d), nginxConf(s, false)))
 	}
-	b.WriteString(`if ! sudo nginx -t 2>/tmp/ontutunnel-nginx-test; then
-  restore; cat /tmp/ontutunnel-nginx-test >&2; echo "nginx test failed — your previous config was kept" >&2; exit 4
+	b.WriteString(`if ! sudo nginx -t 2>"$T/nginx-test"; then
+  restore; cat "$T/nginx-test" >&2; echo "nginx test failed — your previous config was kept" >&2; exit 4
 fi
 sudo systemctl reload nginx
 `)
@@ -475,11 +481,11 @@ sudo systemctl reload nginx
 		d := s.NormalizedDomain()
 		fmt.Fprintf(&b, `if ! sudo test -f /etc/letsencrypt/live/%[1]s/fullchain.pem; then
   command -v certbot >/dev/null || (sudo apt-get update -qq && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq certbot)
-  if sudo certbot certonly --webroot -w /var/www/ontutunnel-acme -d %[1]s --non-interactive --agree-tos %[2]s --deploy-hook "systemctl reload nginx" >/tmp/ontutunnel-certbot 2>&1; then
+  if sudo certbot certonly --webroot -w /var/www/ontutunnel-acme -d %[1]s --non-interactive --agree-tos %[2]s --deploy-hook "systemctl reload nginx" >"$T/certbot" 2>&1; then
     %[3]s
     if sudo nginx -t 2>/dev/null; then sudo systemctl reload nginx; echo "CERT-OK %[1]s"; else %[4]s; sudo nginx -t && sudo systemctl reload nginx; fi
   else
-    echo "CERT-PENDING %[1]s: $(tail -2 /tmp/ontutunnel-certbot | tr '\n' ' ')"
+    echo "CERT-PENDING %[1]s: $(tail -2 "$T/certbot" | tr '\n' ' ')"
   fi
 fi
 `, d, mail, writeFile(nginxFile(d), nginxConf(s, true)), writeFile(nginxFile(d), nginxConf(s, false)))

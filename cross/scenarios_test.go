@@ -52,6 +52,10 @@ func mustOK(t *testing.T, what, script string) string {
 func sharedServer(t *testing.T, file func(string) string, apply func([]Service, []string) string) {
 	a, b, c := "a.ot.test", "b.ot.test", "c.ot.test"
 
+	// another SSH user ran first and owns the old fixed /tmp names: the
+	// scripts must not depend on them (each run uses its own temp folder)
+	mustOK(t, "files of another user", `for f in /tmp/ontutunnel-certbot /tmp/ontutunnel-nginx-test /tmp/ontutunnel-caddy.log; do sudo touch $f; sudo chmod 600 $f; done`)
+
 	// computer A and computer B each publish a site
 	mustOK(t, "A publishes", apply([]Service{site(a, 31001)}, nil))
 	mustOK(t, "B publishes", apply([]Service{site(b, 31002)}, nil))

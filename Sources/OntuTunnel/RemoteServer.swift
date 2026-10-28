@@ -207,6 +207,11 @@ enum RemoteServer {
         return out + "\t}\n}\n"
     }
 
+    /// Every run gets its own temp folder, removed at the end. Several SSH
+    /// users (one per computer) share the server's /tmp, so fixed names like
+    /// /tmp/ontutunnel-certbot would belong to whoever ran first.
+    static let tmpDir = #"T=$(mktemp -d /tmp/ontutunnel.XXXXXX); trap 'rm -rf "$T"' EXIT"#
+
     static func caddySiteFile(_ d: String) -> String { "/etc/ontutunnel/sites/\(d).caddy" }
 
     /// Stops when a domain this Mac hasn't published yet already has an
@@ -248,6 +253,7 @@ enum RemoteServer {
         let keep = active.map(\.normalizedDomain)
         var script = """
         set -e
+        \(tmpDir)
         sudo mkdir -p /etc/ontutunnel/sites /var/lib/ontutunnel
         sudo rm -rf /var/lib/ontutunnel/caddy-backup && sudo mkdir -p /var/lib/ontutunnel/caddy-backup
         sudo cp -a /etc/ontutunnel/sites /var/lib/ontutunnel/caddy-backup/ 2>/dev/null || true
@@ -263,8 +269,8 @@ enum RemoteServer {
         for s in active { script += writeFile(caddySiteFile(s.normalizedDomain), caddySite(s)) + "\n" }
         script += writeFile("/etc/ontutunnel/Caddyfile", caddyMain(email: email)) + """
 
-        if ! sudo XDG_DATA_HOME=/var/lib/ontutunnel /opt/ontutunnel/caddy validate --config /etc/ontutunnel/Caddyfile --adapter caddyfile >/tmp/ontutunnel-caddy.log 2>&1; then
-          tail -3 /tmp/ontutunnel-caddy.log >&2; restore; echo "Caddy config was invalid — put back the previous one." >&2; exit 1
+        if ! sudo XDG_DATA_HOME=/var/lib/ontutunnel /opt/ontutunnel/caddy validate --config /etc/ontutunnel/Caddyfile --adapter caddyfile >"$T/caddy.log" 2>&1; then
+          tail -3 "$T/caddy.log" >&2; restore; echo "Caddy config was invalid — put back the previous one." >&2; exit 1
         fi
         sudo systemctl enable ontutunnel-caddy >/dev/null 2>&1
         sudo systemctl restart ontutunnel-caddy
@@ -351,6 +357,7 @@ enum RemoteServer {
         let keep = active.map { "ontutunnel-\($0.normalizedDomain).conf" }.joined(separator: " ")
         var script = """
         set -e
+        \(tmpDir)
         # migrate from the old name (LocalBridge): adopt its files; certbot
         # renewals still use /var/www/localbridge-acme, so keep that as a link
         for f in /etc/nginx/conf.d/localbridge-*.conf; do
@@ -398,8 +405,8 @@ enum RemoteServer {
             """
         }
         script += """
-        if ! sudo nginx -t 2>/tmp/ontutunnel-nginx-test; then
-          restore; cat /tmp/ontutunnel-nginx-test >&2; echo "nginx test failed — your previous config was kept" >&2; exit 4
+        if ! sudo nginx -t 2>"$T/nginx-test"; then
+          restore; cat "$T/nginx-test" >&2; echo "nginx test failed — your previous config was kept" >&2; exit 4
         fi
         sudo systemctl reload nginx
 
@@ -411,11 +418,11 @@ enum RemoteServer {
             script += """
             if ! sudo test -f /etc/letsencrypt/live/\(d)/fullchain.pem; then
               command -v certbot >/dev/null || (sudo apt-get update -qq && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq certbot)
-              if sudo certbot certonly --webroot -w /var/www/ontutunnel-acme -d \(d) --non-interactive --agree-tos \(mail) --deploy-hook "systemctl reload nginx" >/tmp/ontutunnel-certbot 2>&1; then
+              if sudo certbot certonly --webroot -w /var/www/ontutunnel-acme -d \(d) --non-interactive --agree-tos \(mail) --deploy-hook "systemctl reload nginx" >"$T/certbot" 2>&1; then
                 \(writeFile(nginxFileName(d), nginxConf(s, withTLS: true)))
                 if sudo nginx -t 2>/dev/null; then sudo systemctl reload nginx; echo "CERT-OK \(d)"; else \(writeFile(nginxFileName(d), nginxConf(s, withTLS: false))); sudo nginx -t && sudo systemctl reload nginx; fi
               else
-                echo "CERT-PENDING \(d): $(tail -2 /tmp/ontutunnel-certbot | tr '\\n' ' ')"
+                echo "CERT-PENDING \(d): $(tail -2 "$T/certbot" | tr '\\n' ' ')"
               fi
             fi
 
