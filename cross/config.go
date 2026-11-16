@@ -79,6 +79,16 @@ type Service struct {
 	RemoteSocketPort int    `json:"remoteSocketPort"`
 }
 
+// RemotePort: one port of this computer reachable at <server IP>:PublicPort.
+type RemotePort struct {
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	LocalPort  int    `json:"localPort"`
+	PublicPort int    `json:"publicPort"`
+	Enabled    bool   `json:"enabled"`
+	TunnelPort int    `json:"tunnelPort"` // server loopback port the SSH tunnel uses
+}
+
 func (s Service) NormalizedDomain() string { return strings.ToLower(strings.TrimSpace(s.Domain)) }
 
 var validSite = regexp.MustCompile(`^[A-Za-z0-9._-]{1,100}$`)
@@ -105,8 +115,13 @@ type Config struct {
 	WildcardBases []string `json:"wildcardBases"`
 	// Domains this installation has published on the server — cleanup only
 	// ever removes these, never files written by another computer.
-	Published []string  `json:"published"`
-	Web       WebConfig `json:"web"`
+	Published []string `json:"published"`
+	// "My server" → Remote access: ports of this computer (SSH, Remote
+	// Desktop …) opened on the server's fixed public IP.
+	RemotePorts []RemotePort `json:"remotePorts"`
+	// Public ports this computer opened (cleanup only removes these).
+	PublishedPublicPorts []int     `json:"publishedPublicPorts"`
+	Web                  WebConfig `json:"web"`
 }
 
 func defaultConfig() Config {

@@ -307,6 +307,9 @@ struct RelayView: View {
     @EnvironmentObject var model: AppModel
     @State private var portText = "22"
     @State private var confirmRemove = false
+    /// Tabs under "1 · Connect": server setup, SSH key, remote access.
+    enum Tab: String, CaseIterable { case setup = "Server setup", key = "SSH key", remote = "Remote access" }
+    @State private var tab: Tab = .setup
 
     var body: some View {
         ScrollView {
@@ -346,8 +349,15 @@ struct RelayView: View {
                     }
                 }
 
-                SSHKeyCard()
+                Picker("", selection: $tab) {
+                    ForEach(Tab.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                }
+                .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 480)
 
+                if tab == .key { SSHKeyCard(); SSHConfigCard() }
+                if tab == .remote { RemoteAccessView() }
+
+                if tab == .setup {
                 if let f = model.facts {
                     Card(title: "What's on the server", icon: "magnifyingglass") {
                         Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 6) {
@@ -411,11 +421,15 @@ struct RelayView: View {
                         }
                     }
                 }
+                }
             }
             .padding(24)
             .frame(maxWidth: 860, alignment: .leading)
         }
-        .onAppear { portText = String(model.config.server.port) }
+        .onAppear {
+            portText = String(model.config.server.port)
+            if !model.config.server.isComplete { tab = .key }
+        }
         .confirmationDialog("Remove OntuTunnel from \(model.config.server.host)?", isPresented: $confirmRemove) {
             Button("Remove", role: .destructive) { Task { await model.removeFromServer() } }
         } message: {
@@ -1235,5 +1249,90 @@ struct HostsView: View {
             saving = false
             reload()
         }
+    }
+}
+
+// MARK: - SSH config file (~/.ssh/config): short names like "adimyra-vm"
+
+struct SSHConfigCard: View {
+    @EnvironmentObject var model: AppModel
+    @State private var entries: [SSHConfigFile.Entry] = []
+    @State private var alias = ""
+    @State private var message = ""
+    @State private var ok = false
+
+    var body: some View {
+        let s = model.config.server
+        let current = entries.first { $0.alias == s.host }
+        Card(title: "SSH config file — short names for servers", icon: "doc.text") {
+            Text("With a short name, Terminal needs just `ssh adimyra-vm` instead of the IP, user and key. File: ~/.ssh/config")
+                .font(.caption).foregroundStyle(.secondary)
+
+            if let c = current {
+                Label("This server is in your SSH config as \"\(c.alias)\"", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+                Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 4) {
+                    row("HostName", c.hostName.isEmpty ? "—" : c.hostName)
+                    row("User", c.user.isEmpty ? "—" : c.user)
+                    row("Port", c.port.isEmpty ? "22" : c.port)
+                    row("IdentityFile", c.identityFile.isEmpty ? "—" : c.identityFile)
+                }
+                .font(.system(.callout, design: .monospaced))
+                Button("Update it from OntuTunnel's settings") { save(c.alias, hostName: c.hostName.isEmpty ? model.publicServerIP : c.hostName) }
+                    .disabled(!s.isComplete)
+            } else {
+                Text(s.isComplete ? "This server has no short name yet." : "Fill in 1 · Connect first.").foregroundStyle(.secondary)
+                HStack {
+                    TextField("short name, e.g. adimyra-vm", text: $alias).textFieldStyle(.roundedBorder).frame(maxWidth: 240)
+                    Button("Save to SSH config") { save(alias, hostName: model.publicServerIP) }
+                        .disabled(!s.isComplete || alias.isEmpty)
+                }
+            }
+
+            HStack {
+                Button("Edit in Terminal") { SSHConfigFile.editInTerminal() }
+                Button("Open in TextEdit") { SSHConfigFile.openInTextEdit() }
+                Button("Show in Finder") { SSHConfigFile.revealInFinder() }
+                Button("Reload") { reload() }
+            }
+            if !message.isEmpty {
+                Label(message, systemImage: ok ? "checkmark.circle" : "exclamationmark.triangle")
+                    .font(.caption).foregroundStyle(ok ? .green : .red)
+            }
+            if !entries.isEmpty {
+                DisclosureGroup("All servers in the file (\(entries.count))") {
+                    ForEach(entries) { e in
+                        HStack {
+                            Text(e.alias).font(.system(.callout, design: .monospaced)).frame(width: 150, alignment: .leading)
+                            Text([e.user, e.hostName].filter { !$0.isEmpty }.joined(separator: "@") + (e.port.isEmpty ? "" : " :\(e.port)"))
+                                .font(.system(.callout, design: .monospaced)).foregroundStyle(.secondary)
+                            Spacer()
+                            Button("Copy ssh \(e.alias)") { model.copy("ssh \(e.alias)") }.controlSize(.small)
+                        }
+                    }
+                }
+            }
+        }
+        .onAppear(perform: reload)
+    }
+
+    private func row(_ k: String, _ v: String) -> some View {
+        GridRow { Text(k).foregroundStyle(.secondary); Text(v).textSelection(.enabled) }
+    }
+
+    private func reload() { entries = SSHConfigFile.entries() }
+
+    /// Writes this server's settings (IP, user, port, key) under the short name.
+    private func save(_ name: String, hostName: String) {
+        let s = model.config.server
+        do {
+            try SSHConfigFile.upsert(alias: name.trimmingCharacters(in: .whitespaces), hostName: hostName,
+                                     user: s.user, port: s.port, identityFile: s.keyPath)
+            ok = true
+            message = "Saved. A backup of the old file is ~/.ssh/config.ontutunnel-backup."
+        } catch {
+            ok = false
+            message = error.localizedDescription
+        }
+        reload()
     }
 }

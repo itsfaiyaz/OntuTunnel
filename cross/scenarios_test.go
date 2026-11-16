@@ -170,3 +170,41 @@ func TestScenarioStalePortsOnlySSH(t *testing.T) {
 		t.Fatal("the listener is gone")
 	}
 }
+
+func TestScenarioRemoteAccess(t *testing.T) {
+	if os.Getenv("OT_SCENARIO") == "" {
+		t.Skip("set OT_SCENARIO on a throw-away machine")
+	}
+	// the tunnel end on the server: a program on a loopback port
+	srv := exec.Command("python3", "-m", "http.server", "31801", "--bind", "127.0.0.1")
+	if err := srv.Start(); err != nil {
+		t.Skip("python3 missing")
+	}
+	defer srv.Process.Kill()
+	mustOK(t, "wait", "sleep 1")
+
+	// computer A opens public port 2201 → its tunnel port 31801
+	a := []RemotePort{{ID: "a", Name: "SSH", LocalPort: 22, PublicPort: 2201, Enabled: true, TunnelPort: 31801}}
+	mustOK(t, "A opens 2201", remotePortsScript(a, nil))
+	if out := mustOK(t, "connect", "curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:2201/"); out != "200" {
+		t.Fatalf("public port doesn't reach the tunnel end: %q", out)
+	}
+	// computer B can't take 2201
+	b := []RemotePort{{ID: "b", Name: "SSH", LocalPort: 22, PublicPort: 2201, Enabled: true, TunnelPort: 31802}}
+	if out, code := runLocal(t, remotePortsScript(b, nil)); code != 3 || !strings.Contains(out, "another computer") {
+		t.Fatalf("B took A's port: exit %d\n%s", code, out)
+	}
+	// the probe sees A's port for both computers
+	f := parseFacts(mustOK(t, "probe", probeScript))
+	if f.Reserved["tcp-2201"] == nil || f.Reserved["tcp-2201"][0] != 31801 {
+		t.Fatalf("reserved = %v", f.Reserved)
+	}
+	// A closes it: units gone, port free
+	mustOK(t, "A closes", remotePortsScript(nil, []int{2201}))
+	if _, code := runLocal(t, "ls /etc/systemd/system/ontutunnel-tcp-2201.* 2>/dev/null"); code == 0 {
+		t.Fatal("units still there")
+	}
+	if _, code := runLocal(t, "ss -tlnH | grep -q ':2201 '"); code == 0 {
+		t.Fatal("2201 still listening")
+	}
+}

@@ -126,7 +126,7 @@ enum RemoteServer {
         echo "ourcaddy=$( (systemctl is-active ontutunnel-caddy || systemctl is-active localbridge-caddy) 2>/dev/null | grep -m1 '^active$')"
         echo "used=$(echo "$L" | awk '{print $4}' | sed 's/.*://' | sort -un | tr '\n' ',')"
         echo "forwarding=$(sudo -n sshd -T 2>/dev/null | awk '/^allowtcpforwarding/{print $2}')"
-        echo "reserved=$(grep -Ho '127\.0\.0\.1:[0-9]*' /etc/nginx/conf.d/ontutunnel-*.conf /etc/ontutunnel/sites/*.caddy 2>/dev/null | sed -E 's#^.*/(ontutunnel-)?([^/]*)\.(conf|caddy):127\.0\.0\.1:#\2=#' | tr '\n' ',')"
+        echo "reserved=$(grep -Ho '127\.0\.0\.1:[0-9]*' /etc/nginx/conf.d/ontutunnel-*.conf /etc/ontutunnel/sites/*.caddy /etc/systemd/system/ontutunnel-tcp-*.service 2>/dev/null | sed -E 's#^.*/(ontutunnel-)?([^/]*)\.(conf|caddy|service):127\.0\.0\.1:#\2=#' | tr '\n' ',')"
         """#
         let r = await run(s, script, timeout: 40)
         guard r.ok else { return (r, nil) }

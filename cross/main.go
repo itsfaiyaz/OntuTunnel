@@ -39,7 +39,19 @@ func main() {
 	noBrowser := flag.Bool("no-browser", false, "don't open the dashboard in the browser")
 	showVersion := flag.Bool("version", false, "print the version")
 	hostsWrite := flag.String("hosts-write", "", "admin helper: check this file and make it the hosts file")
+	adminKeysWrite := flag.String("adminkeys-write", "", "admin helper (Windows): make this file administrators_authorized_keys")
 	flag.Parse()
+	if *adminKeysWrite != "" {
+		b, err := os.ReadFile(*adminKeysWrite)
+		if err == nil {
+			err = writeAdminKeys(string(b))
+		}
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
 	if *hostsWrite != "" {
 		b, err := os.ReadFile(*hostsWrite)
 		if err == nil {

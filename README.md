@@ -41,6 +41,8 @@ on **your own domain** with a real HTTPS lock.
 - 🟢 **Health at a glance**: for every site it checks the app, DNS and HTTPS, from the internet's side.
 - 📶 **Survives network changes**: switch Wi-Fi, use a hotspot or get a new IP, and it reconnects in seconds.
 - 👥 **One server, many computers**: your laptop, your desktop and your team can all publish sites through the same server. Each one only touches its own sites.
+- 🖥️ **Remote access**: reach this computer from anywhere at your server's fixed IP, e.g. `ssh you@your-server-ip -p 2201` for SSH or Remote Desktop on Windows. The address never changes, even when your Wi-Fi or IP does. Includes "Copy SSH config" and a list of computers allowed in without a password.
+- 🗂️ **SSH config editor**: short names for servers (`ssh my-server`), saved with the right syntax and a backup.
 - 🔔 **Update notice**: tells you when a new version is out, with a Download button.
 - 🔐 **Private dashboard**: other websites open in your browser can't use it, and everything sent to the server is checked first.
 - 🔑 **Easy SSH keys**: see the keys on your computer, or create one with a user name; step-by-step for Google Cloud and other servers.

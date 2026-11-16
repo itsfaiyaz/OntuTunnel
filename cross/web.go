@@ -252,6 +252,19 @@ func (a *App) apiState(w http.ResponseWriter, _ *http.Request) {
 	a.mu.Lock()
 	out["update"] = a.update
 	a.mu.Unlock()
+	a.mu.Lock()
+	reach := map[string]bool{}
+	for p, ok := range a.remoteReach {
+		reach[fmt.Sprint(p)] = ok
+	}
+	a.mu.Unlock()
+	akPath, _ := authorizedKeysPath()
+	out["remote"] = map[string]any{
+		"ip": a.PublicServerIP(), "alias": thisComputerAlias(), "user": currentUserName(), "reach": reach,
+		"sshServer": PortOpen(22), "rdp": PortOpen(3389), "os": runtime.GOOS,
+		"sshConfig":      map[string]any{"path": sshConfigPath(), "entries": sshConfigEntries()},
+		"authorizedKeys": map[string]any{"path": akPath, "keys": authorizedKeys()},
+	}
 	out["staticChecks"] = map[string]any{"firewall": firewallState(), "outside": outside, "os": runtime.GOOS}
 	out["cloudflared"] = map[string]any{"state": cs, "detail": cd, "installed": cfBinary() != "", "loggedIn": cfLoggedIn()}
 	out["ready"], out["connected"], out["dnsTarget"] = a.Ready(), a.Connected(), a.DNSTarget()
@@ -346,6 +359,53 @@ func (a *App) apiAction(w http.ResponseWriter, r *http.Request) {
 				a.Log("Server", "Remove failed: "+err.Error(), true)
 			}
 		}()
+	// ---- My server → Remote access ----
+	case "remoteAdd":
+		local, public := num("localPort"), num("publicPort")
+		if public == 0 {
+			start := 2201
+			if local == 3389 {
+				start = 2251
+			} else if local == 5900 {
+				start = 5901
+			}
+			public = a.SuggestPublicPort(start)
+		}
+		reply(a.AddRemotePort(str("name"), local, public))
+		go a.TestRemotePorts()
+		return
+	case "remoteRemove":
+		reply(a.RemoveRemotePort(str("id")))
+		return
+	case "remoteToggle":
+		reply(a.SetRemotePortEnabled(str("id"), boolean("on")))
+		go a.TestRemotePorts()
+		return
+	case "remoteTest":
+		go a.TestRemotePorts()
+	case "sshConfigSave":
+		cfg := a.store.Get()
+		host := str("hostName")
+		if host == "" {
+			host = a.PublicServerIP()
+		}
+		reply(upsertSSHConfig(strings.TrimSpace(str("alias")), host, cfg.Server.User, cfg.Server.Port, cfg.Server.KeyPath))
+		return
+	case "sshConfigOpen":
+		reply(openForEditing(sshConfigPath()))
+		return
+	case "authKeyAdd":
+		reply(addAuthorizedKey(str("key")))
+		return
+	case "authKeyRemove":
+		reply(removeAuthorizedKey(str("line")))
+		return
+	case "sshServerInstall":
+		reply(InstallSSHServer())
+		return
+	case "rdpSettings":
+		reply(openRemoteDesktopSettings())
+		return
 	case "allowFirewall":
 		reply(a.AllowFirewall())
 		return

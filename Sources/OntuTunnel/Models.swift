@@ -200,6 +200,11 @@ struct AppConfig: Codable {
     /// Wildcard bases, e.g. "dev.example.com": DNS has *.dev.example.com → this
     /// connection's IP, so any name under it works without a DNS step.
     var wildcardBases: [String] = []
+    /// "My server" → Remote access: ports of this Mac (SSH, Screen Sharing …)
+    /// opened on the server's fixed public IP.
+    var remotePorts: [RemotePort] = []
+    /// Public ports this Mac opened on the server (cleanup only removes these).
+    var publishedPublicPorts: [Int] = []
     /// Domains this Mac has published on the server. Cleanup only removes
     /// these, never files another computer wrote. nil = config from before
     /// this was tracked (then every ontutunnel-* file is ours).
@@ -221,6 +226,8 @@ struct AppConfig: Codable {
         localHostsOff = try c.decodeIfPresent(Bool.self, forKey: .localHostsOff) ?? false
         hiddenPorts = try c.decodeIfPresent([Int].self, forKey: .hiddenPorts) ?? []
         wildcardBases = try c.decodeIfPresent([String].self, forKey: .wildcardBases) ?? []
+        remotePorts = try c.decodeIfPresent([RemotePort].self, forKey: .remotePorts) ?? []
+        publishedPublicPorts = try c.decodeIfPresent([Int].self, forKey: .publishedPublicPorts) ?? []
         published = try c.decodeIfPresent([String].self, forKey: .published)
         web = try c.decodeIfPresent(WebConfig.self, forKey: .web) ?? WebConfig()
     }
@@ -326,4 +333,15 @@ struct SSHKeyInfo: Identifiable, Hashable {
         let u = comment.split(separator: "@").first.map(String.init) ?? ""
         return AppModel.validUserName(u.lowercased()) ? u.lowercased() : ""
     }
+}
+
+/// One port of this Mac reachable from anywhere at <server IP>:publicPort.
+struct RemotePort: Codable, Identifiable, Hashable {
+    var id = UUID()
+    var name: String
+    var localPort: Int
+    var publicPort: Int
+    var enabled = true
+    /// Server loopback port the SSH tunnel uses for it (picked automatically).
+    var tunnelPort = 0
 }

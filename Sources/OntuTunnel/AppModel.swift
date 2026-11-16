@@ -271,7 +271,7 @@ final class AppModel: ObservableObject {
     /// Free ports on the server for each service. Ports another computer's
     /// OntuTunnel sites use (reserved) are never taken, even while it is offline.
     private func assignPorts(used: Set<Int>, reserved: [String: [Int]]) {
-        let mine = Set(config.services.map(\.normalizedDomain))
+        let mine = Set(config.services.map(\.normalizedDomain) + config.remotePorts.map { "tcp-\($0.publicPort)" })
         let foreign = Set(reserved.filter { !mine.contains($0.key) }.values.flatMap { $0 })
         var taken = used.union(foreign)
         for s in config.services { taken.insert(s.remotePort); taken.insert(s.remoteSocketPort) }
@@ -350,7 +350,7 @@ final class AppModel: ObservableObject {
             var f = [(remote: s.remotePort, local: s.localPort)]
             if s.socketPort > 0 && s.remoteSocketPort > 0 { f.append((remote: s.remoteSocketPort, local: s.socketPort)) }
             return f
-        }
+        } + config.remotePorts.filter { $0.enabled && $0.tunnelPort > 0 }.map { (remote: $0.tunnelPort, local: $0.localPort) }
         tunnel.start(server: config.server, forwards: forwards)
     }
 
@@ -360,6 +360,10 @@ final class AppModel: ObservableObject {
         busy = true
         defer { busy = false }
         tunnel.stop()
+        if !config.publishedPublicPorts.isEmpty {   // Remote access ports this Mac opened
+            let r = await RemoteServer.run(config.server, RemoteServer.remotePortsScript([], published: config.publishedPublicPorts))
+            if r.ok { config.publishedPublicPorts = [] }
+        }
         let domains = Array(Set((config.published ?? []) + config.services.map(\.normalizedDomain)))
         let r = await RemoteServer.run(config.server, RemoteServer.uninstallScript(domains: domains))
         if r.ok {

@@ -76,7 +76,24 @@ Act @{ action = 'createKey'; user = 'ci-user' } | Out-Null
 $k = (Invoke-RestMethod "$base/api/state").sshKeyInfos | Where-Object { $_.cloudUser -eq 'ci-user' }
 Check 'Create SSH key with user name' ($k -ne $null) "$($k.name)"
 
-# 8. Windows Firewall rule
+# 8. SSH config file: save a short name
+Act @{ action = 'sshConfigSave'; alias = 'ci-box'; hostName = '203.0.113.5' } | Out-Null
+$cfgFile = Join-Path $env:USERPROFILE '.ssh\config'
+Check 'SSH config: save a short name' ((Test-Path $cfgFile) -and (Select-String -Path $cfgFile -Pattern '^Host ci-box' -Quiet)) (Get-Content $cfgFile -Raw -ErrorAction SilentlyContinue)
+
+# 9. Remote access: allow a key (administrators_authorized_keys + its permissions)
+$pub = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB23Z3JFoF62yxmUpCqT02rtfKIEKcAyoBEZR89fZ/uh ci@ontutunnel-test'
+$r = Act @{ action = 'authKeyAdd'; key = $pub }
+$akFile = "$env:ProgramData\ssh\administrators_authorized_keys"
+$acl = (icacls $akFile 2>$null) -join ' '
+Check 'Allowed keys: add (admin file, locked down)' ((Select-String -Path $akFile -Pattern 'ci@ontutunnel-test' -Quiet) -and $acl -notmatch 'Users:') "$($r.error) $acl"
+$k = (Invoke-RestMethod "$base/api/state").remote.authorizedKeys.keys | Where-Object { $_.label -eq 'ci@ontutunnel-test' } | Select-Object -First 1
+Act @{ action = 'authKeyRemove'; line = $k.line } | Out-Null
+Check 'Allowed keys: remove' (-not (Select-String -Path $akFile -Pattern 'ci@ontutunnel-test' -Quiet))
+$bad = Act @{ action = 'authKeyAdd'; key = 'hello world' }
+Check 'Allowed keys: junk is refused' ([bool]$bad.error)
+
+# 10. Windows Firewall rule
 Act @{ action = 'allowFirewall' } | Out-Null
 Start-Sleep 2
 $fw = (netsh advfirewall firewall show rule name=OntuTunnel) -join "`n"

@@ -31,7 +31,7 @@ jobs:
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq nginx certbot
           sudo systemctl start nginx
-          cd cross && OT_SCENARIO=nginx go test -count=1 -v -run 'TestScenarioNginx|TestScenarioStalePortsOnlySSH' ./...
+          cd cross && OT_SCENARIO=nginx go test -count=1 -v -run 'TestScenarioNginx|TestScenarioStalePortsOnlySSH|TestScenarioRemoteAccess' ./...
       - name: Caddy (shared by 3 computers)
         run: |
           sudo systemctl stop nginx

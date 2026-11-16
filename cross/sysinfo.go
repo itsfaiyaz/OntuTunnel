@@ -56,6 +56,16 @@ func ResolveHost(host string) string {
 	if net.ParseIP(host) != nil {
 		return host
 	}
+	// a short name from ~/.ssh/config ("adimyra-vm") → its HostName
+	for _, e := range sshConfigEntries() {
+		if e.Alias == host && e.HostName != "" {
+			if net.ParseIP(e.HostName) != nil {
+				return e.HostName
+			}
+			host = e.HostName
+			break
+		}
+	}
 	if a := LookupA(host); len(a) > 0 {
 		return a[0]
 	}

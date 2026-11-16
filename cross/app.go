@@ -38,6 +38,7 @@ type App struct {
 	ShowUI           func()
 	outside          OutsideCheck // static IP: reachable from the internet?
 	update           UpdateInfo   // newer release on GitHub, if any
+	remoteReach      map[int]bool // Remote access: public port → reachable from here
 	hostsMu          sync.Mutex
 	hostsDeclined    string // domain list the user said "No" to (don't ask again)
 	hostsDeclinedSet bool
@@ -410,6 +411,9 @@ func (a *App) assignPorts(used []int, reserved map[string][]int) {
 		for _, s := range c.Services {
 			mine[s.NormalizedDomain()] = true
 		}
+		for _, p := range c.RemotePorts {
+			mine[fmt.Sprintf("tcp-%d", p.PublicPort)] = true
+		}
 		foreign := map[int]bool{}
 		for d, ports := range reserved {
 			if !mine[d] {
@@ -529,12 +533,22 @@ func (a *App) ConnectTunnel() {
 			}
 		}
 	}
+	for _, p := range a.store.Get().RemotePorts {
+		if p.Enabled && p.TunnelPort > 0 {
+			fw = append(fw, Forward{p.TunnelPort, p.LocalPort})
+		}
+	}
 	a.tunnel.Start(a.store, fw)
 }
 
 func (a *App) RemoveFromServer() error {
 	a.tunnel.Stop()
 	cfg := a.store.Get()
+	if len(cfg.PublishedPublicPorts) > 0 { // Remote access ports this computer opened
+		if _, _, err := Run(a.store, remotePortsScript(nil, cfg.PublishedPublicPorts), time.Minute); err == nil {
+			a.store.Update(func(c *Config) { c.PublishedPublicPorts = nil })
+		}
+	}
 	domains := cfg.Published
 	for _, s := range cfg.Services {
 		if !contains(domains, s.NormalizedDomain()) {
