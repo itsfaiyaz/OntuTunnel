@@ -1,7 +1,9 @@
 #!/bin/zsh
-# Builds dist/OntuTunnel.app (release, ad-hoc signed).
+# Builds dist/OntuTunnel.app (release).
 #   ./scripts/build-app.sh            build
 #   ./scripts/build-app.sh --install  build and copy to /Applications
+# Signing: ad-hoc by default; set SIGN_ID to a "Developer ID Application: …"
+# identity to sign for distribution (hardened runtime + secure timestamp).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -40,7 +42,13 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
-codesign --force --deep --sign - "$APP"
+SIGN_ID="${SIGN_ID:--}"
+if [[ "$SIGN_ID" == "-" ]]; then
+  codesign --force --deep --sign - "$APP"
+else
+  codesign --force --options runtime --timestamp --sign "$SIGN_ID" "$APP"
+  codesign --verify --strict --verbose=1 "$APP"
+fi
 echo "Built $APP"
 
 if [[ " $* " == *" --install "* ]]; then

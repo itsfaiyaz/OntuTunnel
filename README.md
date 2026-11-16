@@ -97,7 +97,7 @@ Download the file for your system from **[Releases](../../releases)**.
 
 | System | File | Notes |
 |---|---|---|
-| **macOS 14+** (Apple Silicon & Intel) | `OntuTunnel-x.y.z.dmg` | Drag to Applications. First open: **System Settings → Privacy & Security → Open Anyway**. |
+| **macOS 14+** (Apple Silicon & Intel) | `OntuTunnel-x.y.z.dmg` | Drag to Applications and open. Signed and notarized by Apple, so it opens without warnings. |
 | **Windows 10/11** (x64, ARM64) | `OntuTunnel-Setup-x.y.z-x64.exe` or the portable `.zip` | If SmartScreen warns: **More info → Run anyway**. |
 | **Debian / Ubuntu** | `ontutunnel_x.y.z_amd64.deb` | `sudo apt install ./ontutunnel_*.deb` |
 | **Fedora / RHEL** | `ontutunnel-x.y.z.x86_64.rpm` | `sudo dnf install ./ontutunnel-*.rpm` |
