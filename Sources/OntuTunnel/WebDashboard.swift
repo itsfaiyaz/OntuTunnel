@@ -213,9 +213,20 @@ extension AppModel {
                 guard domain.contains("."), (1...65535).contains(port) else {
                     return (400, "application/json", Data("{\"error\":\"Enter a full domain and a port.\"}".utf8))
                 }
-                var s = Service(name: obj["name"] as? String ?? "", domain: domain, localPort: port)
-                s.frappeSite = obj["frappeSite"] as? String ?? ""
-                save(s)
+                let socketPort = obj["socketPort"] as? Int ?? Int(obj["socketPort"] as? String ?? "") ?? 0
+                // Apps like adiRemote publish themselves: re-adding a domain updates it instead of duplicating it.
+                if var existing = config.services.first(where: { $0.normalizedDomain == domain }) {
+                    existing.localPort = port
+                    existing.socketPort = socketPort
+                    existing.enabled = true
+                    if let name = obj["name"] as? String, !name.isEmpty { existing.name = name }
+                    save(existing)
+                } else {
+                    var s = Service(name: obj["name"] as? String ?? "", domain: domain, localPort: port)
+                    s.frappeSite = obj["frappeSite"] as? String ?? ""
+                    s.socketPort = socketPort
+                    save(s)
+                }
             default: return (400, "application/json", Data("{\"error\":\"unknown action\"}".utf8))
             }
             return (200, "application/json", Data("{\"ok\":true}".utf8))
