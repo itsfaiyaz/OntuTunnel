@@ -294,6 +294,11 @@ enum RemoteServer {
                 proxy_set_header X-Real-IP $remote_addr;
                 proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
                 proxy_set_header X-Forwarded-Proto $scheme;
+                # WebSockets (dev live reload, realtime apps): pass the visitor's
+                # Upgrade and Connection headers through. A plain request has no
+                # Upgrade header, so it is forwarded exactly as before.
+                proxy_set_header Upgrade $http_upgrade;
+                proxy_set_header Connection $http_connection;
         """
         if !s.frappeSite.isEmpty { proxy += "\n            proxy_set_header X-Frappe-Site-Name \(s.frappeSite);" }
         proxy += """
